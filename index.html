@@ -3,199 +3,72 @@
 <head>
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <meta name="description" content="Reprodutor IPTV M3U" />
   <title>IPTV Player</title>
-  <script src="https://cdn.jsdelivr.net/npm/hls.js@latest"></script>
-  <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
-  <style>
-    * { margin: 0; padding: 0; box-sizing: border-box; }
-    body { font-family: 'Segoe UI', sans-serif; background: #0f0f1a; color: #fff; }
-    .app { display: grid; grid-template-columns: 320px 1fr; height: 100vh; }
-    .sidebar { background: #16162a; border-right: 1px solid #2a2a45; overflow-y: auto; }
-    .sidebar h1 { padding: 18px; font-size: 1.1em; border-bottom: 1px solid #2a2a45;
-      background: linear-gradient(135deg,#667eea,#f093fb);
-      -webkit-background-clip: text; -webkit-text-fill-color: transparent; }
-    .channel-item { padding: 12px 18px; cursor: pointer; border-bottom: 1px solid #1f1f38;
-      font-size: .9em; transition: background .15s; }
-    .channel-item:hover { background: #1f1f38; }
-    .channel-item.active { background: linear-gradient(90deg,#667eea33,transparent);
-      border-left: 3px solid #667eea; }
-    .player-area { display: flex; flex-direction: column; }
-    .video-wrap { flex: 1; background: #000; position: relative; }
-    video { width: 100%; height: 100%; background: #000; }
-    .bar { padding: 14px 20px; background: #16162a; border-top: 1px solid #2a2a45;
-      display: flex; align-items: center; gap: 12px; }
-    .dot { width: 10px; height: 10px; border-radius: 50%; background: #555; }
-    .dot.live { background: #ff3b5c; box-shadow: 0 0 10px #ff3b5c;
-      animation: pulse 1.5s infinite; }
-    @keyframes pulse { 0%,100%{opacity:1} 50%{opacity:.4} }
-    .err { position: absolute; bottom: 20px; left: 20px; right: 20px;
-      background: #ff3b5c; padding: 12px; border-radius: 8px; display: none; font-size:.85em; }
-    @media (max-width: 768px) {
-      .app { grid-template-columns: 1fr; grid-template-rows: 40vh 60vh; }
-    }
-  </style>
+
+  <link rel="stylesheet" href="./assets/css/styles.css" />
+
+  <!-- hls.js via CDN -->
+  <script src="https://cdn.jsdelivr.net/npm/hls.js@1.5.17/dist/hls.min.js"></script>
 </head>
 <body>
   <div class="app">
+    <!-- ========== SIDEBAR ========== -->
     <aside class="sidebar">
-      <h1>📺 Canais</h1>
-      <div id="channelList"></div>
+      <header class="sidebar__header">
+        <h1 class="sidebar__title">📺 IPTV Player</h1>
+        <div class="sidebar__status" id="statusBar">
+          <span class="spinner" id="spinner"></span>
+          <span id="statusText">Carregando...</span>
+        </div>
+      </header>
+
+      <div class="sidebar__search">
+        <input
+          type="text"
+          id="searchInput"
+          placeholder="🔍 Buscar canal..."
+          autocomplete="off"
+        />
+      </div>
+
+      <nav class="sidebar__list" id="channelList">
+        <div class="empty">Aguardando carregamento...</div>
+      </nav>
     </aside>
-    <main class="player-area">
-      <div class="video-wrap">
-        <video id="video" controls playsinline></video>
-        <div class="err" id="err"></div>
+
+    <!-- ========== PLAYER ========== -->
+    <main class="player">
+      <div class="player__video-wrap">
+        <video
+          id="video"
+          controls
+          playsinline
+          preload="metadata"
+        ></video>
+
+        <div class="player__placeholder" id="placeholder">
+          <svg viewBox="0 0 24 24" width="64" height="64" fill="currentColor">
+            <path d="M21 3H3a2 2 0 0 0-2 2v12a2 2 0 0 0 2 2h5v2h8v-2h5a2 2 0 0 0 2-2V5a2 2 0 0 0-2-2zm0 14H3V5h18v12z"/>
+          </svg>
+          <p>Selecione um canal para começar</p>
+        </div>
+
+        <div class="player__error" id="errorBox"></div>
       </div>
-      <div class="bar">
-        <div class="dot" id="dot"></div>
-        <div id="nowPlaying">Nenhum canal selecionado</div>
-      </div>
+
+      <footer class="player__bar">
+        <span class="dot" id="liveDot"></span>
+        <span class="player__now" id="nowPlaying">Nenhum canal selecionado</span>
+      </footer>
     </main>
   </div>
 
-  <script>
-    // ============ CONFIG ============
-    const SUPABASE_URL = 'https://xemkgbrkafhemrcqveve.supabase.co';
-    const SUPABASE_ANON_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InhlbWtnYnJrYWZoZW1yY3F2ZXZlIiwicm9sZSI6ImFub24iLCJpYXQiOjE3OTAxMjIwMTksImV4cCI6MjEwNTY5ODAxOX0.tZIZk0EAVrMPGRg5IGaNymBapnaw6MCmHVuaAywW1n0';
-    // ================================
-
-    const PROXY_BASE = `${SUPABASE_URL}/functions/v1/proxy?url=`;
-    const supabase = window.supabase.createClient(SUPABASE_URL, SUPABASE_ANON_KEY);
-
-    const video = document.getElementById('video');
-    const listEl = document.getElementById('channelList');
-    const nowEl = document.getElementById('nowPlaying');
-    const dot = document.getElementById('dot');
-    const errEl = document.getElementById('err');
-
-    let channels = [];
-    let hls = null;
-
-    function proxied(url) { return PROXY_BASE + encodeURIComponent(url); }
-
-    function showErr(msg) {
-      errEl.textContent = '⚠️ ' + msg;
-      errEl.style.display = 'block';
-      setTimeout(() => errEl.style.display = 'none', 5000);
-    }
-
-    function parseM3U(text) {
-      const lines = text.split(/\r?\n/);
-      const out = [];
-      let cur = {};
-      for (let raw of lines) {
-        const line = raw.trim();
-        if (!line) continue;
-        if (line.startsWith('#EXTINF:')) {
-          const comma = line.lastIndexOf(',');
-          const attrs = line.substring(8, comma);
-          cur.name = line.substring(comma + 1).trim() || 'Sem nome';
-          cur.logo = (attrs.match(/tvg-logo="([^"]*)"/i) || [])[1] || '';
-          cur.group = (attrs.match(/group-title="([^"]*)"/i) || [])[1] || 'Geral';
-        } else if (line.startsWith('#')) {
-          continue;
-        } else {
-          cur.url = line;
-          if (cur.name) out.push({ ...cur });
-          cur = {};
-        }
-      }
-      return out;
-    }
-
-    async function loadPlaylists() {
-      const { data, error } = await supabase
-        .from('playlists')
-        .select('*')
-        .order('created_at', { ascending: false });
-
-      if (error) {
-        console.error(error);
-        listEl.innerHTML = '<div style="padding:20px;color:#888">Erro ao carregar playlists</div>';
-        return;
-      }
-
-      if (!data || data.length === 0) {
-        listEl.innerHTML = '<div style="padding:20px;color:#888">Nenhuma playlist cadastrada</div>';
-        return;
-      }
-
-      // Carrega cada playlist e extrai canais
-      channels = [];
-      for (const pl of data) {
-        try {
-          const resp = await fetch(proxied(pl.url));
-          const text = await resp.text();
-          const parsed = parseM3U(text);
-          parsed.forEach(ch => channels.push({ ...ch, playlist: pl.name }));
-        } catch (e) {
-          console.error('Erro na playlist', pl.name, e);
-        }
-      }
-
-      renderChannels();
-    }
-
-    function renderChannels() {
-      if (channels.length === 0) {
-        listEl.innerHTML = '<div style="padding:20px;color:#888">Nenhum canal encontrado</div>';
-        return;
-      }
-      listEl.innerHTML = '';
-      channels.forEach((ch, idx) => {
-        const el = document.createElement('div');
-        el.className = 'channel-item';
-        el.dataset.idx = idx;
-        el.innerHTML = `
-          <div style="font-weight:500">${ch.name}</div>
-          <div style="font-size:.75em;color:#888">${ch.group}</div>
-        `;
-        el.addEventListener('click', () => playChannel(idx));
-        listEl.appendChild(el);
-      });
-    }
-
-    function playChannel(idx) {
-      const ch = channels[idx];
-      if (!ch) return;
-
-      document.querySelectorAll('.channel-item').forEach(el => el.classList.remove('active'));
-      document.querySelector(`.channel-item[data-idx="${idx}"]`)?.classList.add('active');
-      nowEl.textContent = ch.name;
-
-      if (hls) { hls.destroy(); hls = null; }
-      video.pause();
-      video.removeAttribute('src');
-      video.load();
-
-      const url = proxied(ch.url);
-      const isHls = ch.url.includes('.m3u8') || ch.url.includes('m3u8');
-
-      if (isHls && window.Hls && Hls.isSupported()) {
-        hls = new Hls({ enableWorker: true, lowLatencyMode: true });
-        hls.loadSource(url);
-        hls.attachMedia(video);
-        hls.on(Hls.Events.MANIFEST_PARSED, () => video.play().catch(()=>{}));
-        hls.on(Hls.Events.ERROR, (_, data) => {
-          if (data.fatal) {
-            showErr('Erro no stream: ' + data.type);
-            if (data.type === Hls.ErrorTypes.NETWORK_ERROR) hls.startLoad();
-            else if (data.type === Hls.ErrorTypes.MEDIA_ERROR) hls.recoverMediaError();
-            else { hls.destroy(); hls = null; }
-          }
-        });
-      } else {
-        video.src = url;
-        video.play().catch(() => showErr('Não foi possível reproduzir'));
-      }
-
-      video.addEventListener('playing', () => {
-        dot.classList.add('live');
-        errEl.style.display = 'none';
-      }, { once: true });
-    }
-
-    loadPlaylists();
-  </script>
+  <!-- Scripts na ordem correta -->
+  <script src="./assets/js/config.js"></script>
+  <script src="./assets/js/api.js"></script>
+  <script src="./assets/js/parser.js"></script>
+  <script src="./assets/js/player.js"></script>
+  <script src="./assets/js/app.js"></script>
 </body>
 </html>
