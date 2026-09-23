@@ -1,74 +1,371 @@
 <!DOCTYPE html>
 <html lang="pt-BR">
 <head>
-  <meta charset="UTF-8" />
-  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-  <meta name="description" content="Reprodutor IPTV M3U" />
-  <title>IPTV Player</title>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1.0" />
+<title>IPTV Player</title>
+<script src="https://cdn.jsdelivr.net/npm/hls.js@1.5.17/dist/hls.min.js"></script>
+<style>
+  *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+  :root {
+    --bg: #0f0f1a; --bg-panel: #16162a; --bg-hover: #1f1f38;
+    --border: #2a2a45; --text: #fff; --muted: #888;
+    --accent: #667eea; --live: #ff3b5c;
+  }
+  html, body {
+    height: 100%; overflow: hidden; color: var(--text);
+    font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+    background: var(--bg);
+  }
+  .app { display: grid; grid-template-columns: 320px 1fr; height: 100vh; }
 
-  <link rel="stylesheet" href="./assets/css/styles.css" />
+  /* Sidebar */
+  .sidebar { background: var(--bg-panel); border-right: 1px solid var(--border);
+    display: flex; flex-direction: column; overflow: hidden; }
+  .sidebar__header { padding: 16px 18px; border-bottom: 1px solid var(--border); }
+  .sidebar__title { font-size: 1.1rem; font-weight: 700;
+    background: linear-gradient(135deg, var(--accent), #f093fb);
+    -webkit-background-clip: text; -webkit-text-fill-color: transparent; background-clip: text; }
+  .sidebar__status { display: flex; align-items: center; gap: 8px;
+    margin-top: 8px; font-size: .75rem; color: var(--muted); }
+  .spinner { width: 12px; height: 12px; border: 2px solid var(--border);
+    border-top-color: var(--accent); border-radius: 50%;
+    animation: spin .8s linear infinite; }
+  .spinner.hidden { display: none; }
+  @keyframes spin { to { transform: rotate(360deg); } }
+  .sidebar__search { padding: 10px 14px; border-bottom: 1px solid var(--border); }
+  .sidebar__search input { width: 100%; padding: 9px 12px; background: var(--bg);
+    border: 1px solid var(--border); border-radius: 8px; color: var(--text);
+    font-size: .85rem; outline: none; }
+  .sidebar__search input:focus { border-color: var(--accent); }
+  .sidebar__list { flex: 1; overflow-y: auto; padding: 6px 0; }
+  .sidebar__list::-webkit-scrollbar { width: 6px; }
+  .sidebar__list::-webkit-scrollbar-thumb { background: var(--border); border-radius: 3px; }
 
-  <!-- hls.js via CDN -->
-  <script src="https://cdn.jsdelivr.net/npm/hls.js@1.5.17/dist/hls.min.js"></script>
+  .group-title { padding: 12px 18px 4px; font-size: .68rem; text-transform: uppercase;
+    letter-spacing: 1.2px; font-weight: 700; color: var(--accent); }
+  .channel-item { display: flex; align-items: center; gap: 10px; padding: 9px 18px;
+    cursor: pointer; font-size: .87rem; border-left: 3px solid transparent;
+    transition: background .12s; }
+  .channel-item:hover { background: var(--bg-hover); }
+  .channel-item.active { background: linear-gradient(90deg, rgba(102,126,234,.2), transparent);
+    border-left-color: var(--accent); }
+  .channel-item__logo { width: 32px; height: 32px; flex-shrink: 0;
+    border-radius: 4px; background: var(--bg); object-fit: contain; padding: 2px; }
+  .channel-item__name { flex: 1; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+  .empty { padding: 30px 20px; text-align: center; color: var(--muted); font-size: .85rem; }
+
+  /* Player */
+  .player { display: flex; flex-direction: column; overflow: hidden; }
+  .player__video-wrap { flex: 1; position: relative; background: #000;
+    display: flex; align-items: center; justify-content: center; }
+  video { width: 100%; height: 100%; background: #000; display: block; }
+  .player__placeholder { position: absolute; inset: 0; display: flex; flex-direction: column;
+    align-items: center; justify-content: center; color: #444; pointer-events: none;
+    text-align: center; padding: 20px; }
+  .player__placeholder.hidden { display: none; }
+  .player__error { position: absolute; bottom: 20px; left: 20px; right: 20px;
+    background: var(--live); color: #fff; padding: 12px 16px; border-radius: 8px;
+    font-size: .85rem; display: none; box-shadow: 0 4px 20px rgba(255,59,92,.4); }
+  .player__error.visible { display: block; }
+  .player__bar { display: flex; align-items: center; gap: 12px; padding: 12px 20px;
+    background: var(--bg-panel); border-top: 1px solid var(--border); }
+  .player__now { font-size: .9rem; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+  .dot { width: 10px; height: 10px; border-radius: 50%; background: #555;
+    flex-shrink: 0; transition: background .2s; }
+  .dot.live { background: var(--live); box-shadow: 0 0 10px var(--live);
+    animation: pulse 1.5s ease-in-out infinite; }
+  @keyframes pulse { 0%,100% { opacity: 1; } 50% { opacity: .4; } }
+
+  @media (max-width: 768px) {
+    .app { grid-template-columns: 1fr; grid-template-rows: 42vh 58vh; }
+    .sidebar { border-right: none; border-bottom: 1px solid var(--border); }
+  }
+</style>
 </head>
 <body>
-  <div class="app">
-    <!-- ========== SIDEBAR ========== -->
-    <aside class="sidebar">
-      <header class="sidebar__header">
-        <h1 class="sidebar__title">📺 IPTV Player</h1>
-        <div class="sidebar__status" id="statusBar">
-          <span class="spinner" id="spinner"></span>
-          <span id="statusText">Carregando...</span>
-        </div>
-      </header>
-
-      <div class="sidebar__search">
-        <input
-          type="text"
-          id="searchInput"
-          placeholder="🔍 Buscar canal..."
-          autocomplete="off"
-        />
+<div class="app">
+  <aside class="sidebar">
+    <header class="sidebar__header">
+      <h1 class="sidebar__title">📺 IPTV Player</h1>
+      <div class="sidebar__status">
+        <span class="spinner" id="spinner"></span>
+        <span id="statusText">Carregando...</span>
       </div>
+    </header>
+    <div class="sidebar__search">
+      <input type="text" id="searchInput" placeholder="🔍 Buscar canal..." autocomplete="off" />
+    </div>
+    <nav class="sidebar__list" id="channelList">
+      <div class="empty">Aguardando carregamento...</div>
+    </nav>
+  </aside>
 
-      <nav class="sidebar__list" id="channelList">
-        <div class="empty">Aguardando carregamento...</div>
-      </nav>
-    </aside>
-
-    <!-- ========== PLAYER ========== -->
-    <main class="player">
-      <div class="player__video-wrap">
-        <video
-          id="video"
-          controls
-          playsinline
-          preload="metadata"
-        ></video>
-
-        <div class="player__placeholder" id="placeholder">
-          <svg viewBox="0 0 24 24" width="64" height="64" fill="currentColor">
-            <path d="M21 3H3a2 2 0 0 0-2 2v12a2 2 0 0 0 2 2h5v2h8v-2h5a2 2 0 0 0 2-2V5a2 2 0 0 0-2-2zm0 14H3V5h18v12z"/>
-          </svg>
-          <p>Selecione um canal para começar</p>
-        </div>
-
-        <div class="player__error" id="errorBox"></div>
+  <main class="player">
+    <div class="player__video-wrap">
+      <video id="video" controls playsinline preload="metadata"></video>
+      <div class="player__placeholder" id="placeholder">
+        <svg viewBox="0 0 24 24" width="64" height="64" fill="currentColor">
+          <path d="M21 3H3a2 2 0 0 0-2 2v12a2 2 0 0 0 2 2h5v2h8v-2h5a2 2 0 0 0 2-2V5a2 2 0 0 0-2-2zm0 14H3V5h18v12z"/>
+        </svg>
+        <p>Selecione um canal para começar</p>
       </div>
+      <div class="player__error" id="errorBox"></div>
+    </div>
+    <footer class="player__bar">
+      <span class="dot" id="liveDot"></span>
+      <span class="player__now" id="nowPlaying">Nenhum canal selecionado</span>
+    </footer>
+  </main>
+</div>
 
-      <footer class="player__bar">
-        <span class="dot" id="liveDot"></span>
-        <span class="player__now" id="nowPlaying">Nenhum canal selecionado</span>
-      </footer>
-    </main>
-  </div>
+<script>
+/* ============================================================
+   CONFIG
+   ============================================================ */
+const CONFIG = {
+  SUPABASE_URL: 'https://xemkgbrkafhemrcqveve.supabase.co',
+  EDGE_PLAYLIST: '/functions/v1/playlist',
+  EDGE_PROXY:    '/functions/v1/proxy',
 
-  <!-- Scripts na ordem correta -->
-  <script src="./assets/js/config.js"></script>
-  <script src="./assets/js/api.js"></script>
-  <script src="./assets/js/parser.js"></script>
-  <script src="./assets/js/player.js"></script>
-  <script src="./assets/js/app.js"></script>
+  // true = usa playlist mock (testes). false = usa Supabase real.
+  USE_MOCK: true,
+
+  MOCK_M3U: [
+    '#EXTM3U',
+    '#EXTINF:-1 tvg-logo="https://i.imgur.com/8Q5k6nK.png" group-title="Testes",Mux Test Stream',
+    'https://test-streams.mux.dev/x36xhzz/x36xhzz.m3u8',
+    '#EXTINF:-1 group-title="Testes",Big Buck Bunny',
+    'https://test-streams.mux.dev/pts_shift/master.m3u8',
+  ].join('\n'),
+};
+CONFIG.PLAYLIST_ENDPOINT = CONFIG.SUPABASE_URL + CONFIG.EDGE_PLAYLIST;
+CONFIG.PROXY_ENDPOINT    = CONFIG.SUPABASE_URL + CONFIG.EDGE_PROXY;
+
+/* ============================================================
+   API
+   ============================================================ */
+const API = {
+  async fetchPlaylist() {
+    if (CONFIG.USE_MOCK) {
+      await new Promise(r => setTimeout(r, 200));
+      return CONFIG.MOCK_M3U;
+    }
+    const res = await fetch(CONFIG.PLAYLIST_ENDPOINT);
+    if (!res.ok) throw new Error('Playlist HTTP ' + res.status);
+    return res.text();
+  },
+  proxied(url) {
+    if (CONFIG.USE_MOCK) return url;
+    return CONFIG.PROXY_ENDPOINT + '?url=' + encodeURIComponent(url);
+  },
+};
+
+/* ============================================================
+   PARSER
+   ============================================================ */
+const Parser = {
+  parseM3U(text) {
+    const lines = text.split(/\r?\n/);
+    const out = [];
+    let cur = null;
+    for (const raw of lines) {
+      const line = raw.trim();
+      if (!line) continue;
+      if (line.startsWith('#EXTINF:')) {
+        cur = this._parseExtinf(line);
+      } else if (line.startsWith('#')) {
+        continue;
+      } else {
+        if (cur && cur.name) { cur.url = line; out.push(cur); }
+        cur = null;
+      }
+    }
+    return out;
+  },
+  _parseExtinf(line) {
+    const comma = line.lastIndexOf(',');
+    const attrs = line.substring(8, comma);
+    const name  = line.substring(comma + 1).trim() || 'Sem nome';
+    return {
+      name,
+      logo:  this._attr(attrs, 'tvg-logo'),
+      group: this._attr(attrs, 'group-title') || 'Geral',
+    };
+  },
+  _attr(str, key) {
+    const m = str.match(new RegExp(key + '="([^"]*)"', 'i'));
+    return m ? m[1] : '';
+  },
+  groupByCategory(channels) {
+    const groups = {};
+    for (const ch of channels) {
+      const g = ch.group || 'Geral';
+      (groups[g] ||= []).push(ch);
+    }
+    return groups;
+  },
+};
+
+/* ============================================================
+   PLAYER
+   ============================================================ */
+const Player = {
+  video: null, hls: null, onLive: null,
+  init(videoEl, onLiveCb) {
+    this.video = videoEl;
+    this.onLive = onLiveCb;
+    this.video.addEventListener('playing', () => this.onLive && this.onLive(true));
+    this.video.addEventListener('pause',   () => this.onLive && this.onLive(false));
+    this.video.addEventListener('error',   () => this.onLive && this.onLive(false));
+  },
+  play(url, onError) {
+    this.stop();
+    const isHls = /\.m3u8($|\?)/i.test(url);
+    if (isHls && window.Hls && Hls.isSupported()) {
+      this._playHls(url, onError);
+    } else if (isHls && this.video.canPlayType('application/vnd.apple.mpegurl')) {
+      this.video.src = url;
+      this.video.play().catch(() => onError('Não foi possível iniciar a reprodução'));
+    } else {
+      this.video.src = url;
+      this.video.play().catch(() => onError('Formato não suportado ou stream indisponível'));
+    }
+  },
+  _playHls(url, onError) {
+    this.hls = new Hls({ enableWorker: true, lowLatencyMode: true, backBufferLength: 30 });
+    this.hls.loadSource(url);
+    this.hls.attachMedia(this.video);
+    this.hls.on(Hls.Events.MANIFEST_PARSED, () => this.video.play().catch(() => {}));
+    this.hls.on(Hls.Events.ERROR, (_, data) => {
+      if (!data.fatal) return;
+      switch (data.type) {
+        case Hls.ErrorTypes.NETWORK_ERROR:
+          onError('Erro de rede. Tentando reconectar...');
+          this.hls.startLoad(); break;
+        case Hls.ErrorTypes.MEDIA_ERROR:
+          onError('Erro de mídia. Recuperando...');
+          this.hls.recoverMediaError(); break;
+        default:
+          onError('Não foi possível reproduzir este canal.');
+          this.stop(); break;
+      }
+    });
+  },
+  stop() {
+    if (this.hls) { this.hls.destroy(); this.hls = null; }
+    this.video.pause();
+    this.video.removeAttribute('src');
+    this.video.load();
+  },
+};
+
+/* ============================================================
+   APP
+   ============================================================ */
+(() => {
+  const els = {
+    video:       document.getElementById('video'),
+    placeholder: document.getElementById('placeholder'),
+    errorBox:    document.getElementById('errorBox'),
+    list:        document.getElementById('channelList'),
+    search:      document.getElementById('searchInput'),
+    nowPlaying:  document.getElementById('nowPlaying'),
+    liveDot:     document.getElementById('liveDot'),
+    spinner:     document.getElementById('spinner'),
+    statusText:  document.getElementById('statusText'),
+  };
+
+  const state = { all: [], filtered: [], currentIdx: -1 };
+
+  function showError(msg) {
+    els.errorBox.textContent = '⚠️ ' + msg;
+    els.errorBox.classList.add('visible');
+    clearTimeout(showError._t);
+    showError._t = setTimeout(() => els.errorBox.classList.remove('visible'), 5000);
+  }
+  function setLive(on) { els.liveDot.classList.toggle('live', on); }
+
+  function escapeHtml(t) {
+    const d = document.createElement('div'); d.textContent = t; return d.innerHTML;
+  }
+  function escapeAttr(t) {
+    return String(t).replace(/"/g, '&quot;').replace(/'/g, '&#39;');
+  }
+
+  function renderList() {
+    els.list.innerHTML = '';
+    if (state.filtered.length === 0) {
+      els.list.innerHTML = '<div class="empty">Nenhum canal encontrado</div>';
+      return;
+    }
+    const groups = Parser.groupByCategory(state.filtered);
+    Object.keys(groups).sort().forEach(groupName => {
+      const header = document.createElement('div');
+      header.className = 'group-title';
+      header.textContent = groupName;
+      els.list.appendChild(header);
+      for (const ch of groups[groupName]) {
+        const idx = state.all.indexOf(ch);
+        const el = document.createElement('div');
+        el.className = 'channel-item' + (idx === state.currentIdx ? ' active' : '');
+        el.dataset.idx = idx;
+        const logo = ch.logo
+          ? `<img class="channel-item__logo" src="${escapeAttr(ch.logo)}" onerror="this.style.display='none'">`
+          : '';
+        el.innerHTML = `${logo}<span class="channel-item__name">${escapeHtml(ch.name)}</span>`;
+        el.addEventListener('click', () => playChannel(idx));
+        els.list.appendChild(el);
+      }
+    });
+  }
+
+  function playChannel(idx) {
+    const ch = state.all[idx];
+    if (!ch) return;
+    state.currentIdx = idx;
+    document.querySelectorAll('.channel-item').forEach(el => el.classList.remove('active'));
+    document.querySelector(`.channel-item[data-idx="${idx}"]`)?.classList.add('active');
+    els.nowPlaying.textContent = ch.name;
+    els.placeholder.classList.add('hidden');
+    els.errorBox.classList.remove('visible');
+    Player.play(API.proxied(ch.url), showError);
+  }
+
+  els.search.addEventListener('input', () => {
+    const q = els.search.value.toLowerCase().trim();
+    state.filtered = q
+      ? state.all.filter(c => c.name.toLowerCase().includes(q) || c.group.toLowerCase().includes(q))
+      : [...state.all];
+    renderList();
+  });
+
+  async function loadPlaylist() {
+    els.spinner.classList.remove('hidden');
+    els.statusText.textContent = 'Carregando canais...';
+    try {
+      const text = await API.fetchPlaylist();
+      state.all = Parser.parseM3U(text);
+      state.filtered = [...state.all];
+      if (state.all.length === 0) {
+        els.list.innerHTML = '<div class="empty">Playlist vazia ou inválida</div>';
+        els.statusText.textContent = 'Nenhum canal';
+        return;
+      }
+      els.statusText.textContent = state.all.length + ' canais';
+      renderList();
+    } catch (err) {
+      console.error(err);
+      els.list.innerHTML = `<div class="empty">Erro: ${escapeHtml(err.message)}</div>`;
+      els.statusText.textContent = 'Erro';
+    } finally {
+      els.spinner.classList.add('hidden');
+    }
+  }
+
+  Player.init(els.video, setLive);
+  loadPlaylist();
+})();
+</script>
 </body>
 </html>
