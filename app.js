@@ -1,16 +1,23 @@
 /* ============================================================
-   Lotofácil Casino Analytics — Nokia Lumia + Casino
-   Baseado APENAS no arquivo Excel carregado pelo usuário.
+   LotoFácil Casino Analytics — Metro UI
    ============================================================ */
 
-const CACHE_KEY = 'lotofacil_concursos_v5';
-const CACHE_EXPIRA = 24 * 60 * 60 * 1000; // 24h
+const CACHE_KEY = 'lotofacil_metro_v1';
+const CACHE_EXPIRA = 24 * 60 * 60 * 1000;
 
 let concursos = [];
 const charts = {};
 
 const $ = id => document.getElementById(id);
 const pad = n => String(n).padStart(2, '0');
+
+/* ---------- Relógio ---------- */
+function atualizarRelogio() {
+  const now = new Date();
+  $('clock').textContent = `${String(now.getHours()).padStart(2, '0')}:${String(now.getMinutes()).padStart(2, '0')}`;
+}
+setInterval(atualizarRelogio, 1000);
+atualizarRelogio();
 
 /* ---------- Toast ---------- */
 function toast(msg, dur = 2600) {
@@ -28,18 +35,77 @@ function setBadge(text, on = false) {
 }
 
 /* ============================================================
+   NAVEGAÇÃO COM TRANSIÇÃO METRO
+   ============================================================ */
+
+let telaAtual = 'home';
+
+function navegarPara(nome) {
+  if (nome === telaAtual) return;
+
+  const atual = $('screen' + telaAtual.charAt(0).toUpperCase() + telaAtual.slice(1));
+  const destino = $('screen' + nome.charAt(0).toUpperCase() + nome.slice(1));
+  if (!destino) return;
+
+  // Atualiza nav bar
+  document.querySelectorAll('.nav-item').forEach(el => {
+    el.classList.toggle('active', el.dataset.screen === nome);
+  });
+
+  // Animação de saída
+  if (atual) {
+    atual.classList.add('exit');
+    setTimeout(() => {
+      atual.classList.remove('active', 'exit');
+      destino.classList.add('active');
+      window.scrollTo({ top: 0, behavior: 'instant' });
+      telaAtual = nome;
+
+      // Renderiza gráficos da tela ao entrar (lazy)
+      renderTelaEspecifica(nome);
+    }, 250);
+  } else {
+    destino.classList.add('active');
+    telaAtual = nome;
+    renderTelaEspecifica(nome);
+  }
+}
+
+function renderTelaEspecifica(nome) {
+  if (concursos.length === 0) {
+    if (nome !== 'home' && nome !== 'upload') {
+      // Sem dados: só renderiza o que não depende de dados
+      if (nome === 'prob') renderTabelaProb();
+    }
+    return;
+  }
+
+  switch (nome) {
+    case 'prob': renderTabelaProb(); break;
+    case 'pares': renderDonut(); break;
+    case 'freq': renderFreq(); break;
+    case 'atraso': renderAtraso(); break;
+    case 'faixas': renderFaixas(); break;
+    case 'soma': renderSoma(); break;
+    case 'repetidos': renderRepetidos(); break;
+    case 'gerar': renderJogo(); break;
+    case 'validacao': validarDados(); break;
+  }
+}
+
+/* ============================================================
    EXTRAÇÃO — APENAS ARQUIVO
    ============================================================ */
 
 async function processarArquivo(file) {
   setBadge('lendo…');
+  toast('Lendo planilha…');
   try {
     const data = await file.arrayBuffer();
     const wb = XLSX.read(data, { type: 'array' });
     const ws = wb.Sheets[wb.SheetNames[0]];
     const rows = XLSX.utils.sheet_to_json(ws, { header: 1, defval: '' });
 
-    // Achar linha do cabeçalho
     let headerIdx = -1;
     for (let i = 0; i < Math.min(rows.length, 25); i++) {
       const row = rows[i].map(c => String(c).toLowerCase());
@@ -50,7 +116,6 @@ async function processarArquivo(file) {
     const header = rows[headerIdx].map(c => String(c).toLowerCase().trim());
     const idxConcurso = header.findIndex(c => c.includes('concurso'));
 
-    // Colunas das bolas
     const idxBolas = [];
     header.forEach((c, i) => {
       if (c.includes('bola') || c.includes('dezena') || c.includes('nº') || c.includes('num')) {
@@ -62,7 +127,6 @@ async function processarArquivo(file) {
       for (let i = idxConcurso + 1; i <= idxConcurso + 15; i++) idxBolas.push(i);
     }
 
-    // Extrair concursos
     const lista = [];
     for (let i = headerIdx + 1; i < rows.length; i++) {
       const row = rows[i];
@@ -76,15 +140,17 @@ async function processarArquivo(file) {
     }
 
     if (lista.length === 0) throw new Error('Nenhum concurso válido');
-
-    // O arquivo vem do mais novo para o mais antigo — inverter
     lista.reverse();
     concursos = lista;
 
     salvarCache();
     setBadge(`${concursos.length} concursos`, true);
-    renderTudo();
     toast(`✓ ${concursos.length} concursos carregados`);
+
+    // Volta para home e renderiza tudo
+    navegarPara('home');
+    renderTabelaProb();
+
   } catch (e) {
     console.error(e);
     setBadge('erro', false);
@@ -92,7 +158,6 @@ async function processarArquivo(file) {
   }
 }
 
-/* ---------- Cache ---------- */
 function salvarCache() {
   try {
     localStorage.setItem(CACHE_KEY, JSON.stringify({
@@ -131,15 +196,17 @@ function validarDados() {
   });
 
   const el = $('validacao');
-  const tile = $('tileValidacao');
-  tile.classList.remove('hidden');
+  if (concursos.length === 0) {
+    el.innerHTML = '<span style="color:#a0a0a0">Carregue a planilha primeiro</span>';
+    return;
+  }
 
   if (problemas.length === 0) {
-    el.innerHTML = `<span style="color:var(--green)">✓ ${concursos.length} concursos válidos</span>`;
+    el.innerHTML = `<span style="color:#7fba00">✓ ${concursos.length} concursos válidos</span>`;
   } else {
-    el.innerHTML = `<span style="color:var(--red)">⚠ ${problemas.length} problema(s):</span><br>` +
-      problemas.slice(0, 8).map(p => `· ${p}`).join('<br>') +
-      (problemas.length > 8 ? `<br>· +${problemas.length - 8} mais` : '');
+    el.innerHTML = `<span style="color:#d13438">⚠ ${problemas.length} problema(s):</span><br>` +
+      problemas.slice(0, 12).map(p => `· ${p}`).join('<br>') +
+      (problemas.length > 12 ? `<br>· +${problemas.length - 12} mais` : '');
   }
 }
 
@@ -156,7 +223,6 @@ function combinacao(n, k) {
 }
 
 function hipergeometrica(k) {
-  // N=25, K=15 (escolhidos), n=15 (sorteados)
   return combinacao(15, k) * combinacao(10, 15 - k) / combinacao(25, 15);
 }
 
@@ -235,26 +301,22 @@ function histograma(valores, min, max) {
 }
 
 /* ============================================================
-   GRÁFICOS — Estilo Lumia (limpo, flat)
+   GRÁFICOS — estilo Metro
    ============================================================ */
 
 const CORES = {
-  gold: '#d4af37',
-  green: '#2ecc71',
-  red: '#e63946',
-  blue: '#3498db',
-  purple: '#9b59b6',
-  orange: '#e67e22',
-  cyan: '#1abc9c',
-  muted: '#8a8a8a',
-  border: '#2a2a2a'
+  red: '#d13438',
+  green: '#107c10',
+  blue: '#0078d7',
+  cyan: '#00b7c3',
+  purple: '#8764b8',
+  orange: '#ff8c00',
+  yellow: '#ffb900',
+  magenta: '#e3008c',
+  teal: '#008272',
+  muted: '#a0a0a0',
+  border: '#2b2b2b'
 };
-
-const corVar = nome => getComputedStyle(document.body).getPropertyValue(nome).trim();
-
-function destroyChart(key) {
-  if (charts[key]) { charts[key].destroy(); delete charts[key]; }
-}
 
 function configBase() {
   return {
@@ -263,12 +325,12 @@ function configBase() {
     plugins: {
       legend: { display: false },
       tooltip: {
-        backgroundColor: '#0a0a0a',
-        titleColor: '#d4af37',
+        backgroundColor: '#1f1f1f',
+        titleColor: '#ffb900',
         bodyColor: '#ffffff',
-        borderColor: '#d4af37',
-        borderWidth: 1,
-        padding: 12,
+        borderColor: '#ffb900',
+        borderWidth: 0,
+        padding: 10,
         titleFont: { size: 11, weight: '400' },
         bodyFont: { size: 12, weight: '300' },
         displayColors: false,
@@ -277,19 +339,12 @@ function configBase() {
     },
     scales: {
       x: {
-        ticks: {
-          color: CORES.muted,
-          font: { size: 9, weight: '300' },
-          maxRotation: 0
-        },
+        ticks: { color: CORES.muted, font: { size: 9, weight: '300' }, maxRotation: 0 },
         grid: { display: false },
         border: { color: CORES.border }
       },
       y: {
-        ticks: {
-          color: CORES.muted,
-          font: { size: 9, weight: '300' }
-        },
+        ticks: { color: CORES.muted, font: { size: 9, weight: '300' } },
         grid: { color: CORES.border, drawBorder: false },
         border: { display: false }
       }
@@ -297,17 +352,15 @@ function configBase() {
   };
 }
 
-/* ---------- Donut ---------- */
 function renderDonut() {
-  destroyChart('donut');
+  if (charts.donut) { charts.donut.destroy(); delete charts.donut; }
   const dist = calcParesImpares();
   const chaves = Object.keys(dist).map(Number).sort((a, b) => a - b);
   const labels = chaves.map(k => `${k}P · ${15 - k}I`);
   const data = chaves.map(k => dist[k]);
 
-  // Cores estilo Lumia: quentes para extremos, frias para o centro
   const cores = chaves.map(k => {
-    if (k === 7 || k === 8) return CORES.gold;
+    if (k === 7 || k === 8) return CORES.yellow;
     if (k === 6 || k === 9) return CORES.blue;
     if (k === 5 || k === 10) return CORES.purple;
     return CORES.red;
@@ -320,7 +373,7 @@ function renderDonut() {
       datasets: [{
         data,
         backgroundColor: cores,
-        borderColor: '#0a0a0a',
+        borderColor: '#000',
         borderWidth: 2,
         hoverOffset: 4
       }]
@@ -333,9 +386,9 @@ function renderDonut() {
         legend: {
           position: 'bottom',
           labels: {
-            color: '#8a8a8a',
+            color: '#a0a0a0',
             font: { size: 10, weight: '300' },
-            padding: 12,
+            padding: 10,
             boxWidth: 8,
             boxHeight: 8,
             usePointStyle: true,
@@ -343,12 +396,10 @@ function renderDonut() {
           }
         },
         tooltip: {
-          backgroundColor: '#0a0a0a',
-          titleColor: '#d4af37',
-          bodyColor: '#ffffff',
-          borderColor: '#d4af37',
-          borderWidth: 1,
-          padding: 12,
+          backgroundColor: '#1f1f1f',
+          titleColor: '#ffb900',
+          bodyColor: '#fff',
+          padding: 10,
           displayColors: false,
           cornerRadius: 0,
           callbacks: {
@@ -364,9 +415,8 @@ function renderDonut() {
   });
 }
 
-/* ---------- Frequência ---------- */
 function renderFreq() {
-  destroyChart('freq');
+  if (charts.freq) { charts.freq.destroy(); delete charts.freq; }
   const freq = calcFrequencia();
   const labels = Array.from({ length: 25 }, (_, i) => pad(i + 1));
   const data = freq.slice(1);
@@ -381,8 +431,7 @@ function renderFreq() {
         data,
         backgroundColor: data.map(v => {
           const t = (v - min) / (max - min || 1);
-          // Gradiente de opacidade do gold
-          return `rgba(212, 175, 55, ${0.25 + t * 0.75})`;
+          return `rgba(255, 185, 0, ${0.25 + t * 0.75})`;
         }),
         borderWidth: 0,
         barPercentage: 0.85,
@@ -395,18 +444,15 @@ function renderFreq() {
         ...configBase().plugins,
         tooltip: {
           ...configBase().plugins.tooltip,
-          callbacks: {
-            label: ctx => `${ctx.parsed.y} aparições`
-          }
+          callbacks: { label: ctx => `${ctx.parsed.y} aparições` }
         }
       }
     }
   });
 }
 
-/* ---------- Atraso ---------- */
 function renderAtraso() {
-  destroyChart('atraso');
+  if (charts.atraso) { charts.atraso.destroy(); delete charts.atraso; }
   const atraso = calcAtraso();
   const labels = Array.from({ length: 25 }, (_, i) => pad(i + 1));
   const data = atraso.slice(1);
@@ -429,21 +475,18 @@ function renderAtraso() {
         ...configBase().plugins,
         tooltip: {
           ...configBase().plugins.tooltip,
-          callbacks: {
-            label: ctx => `${ctx.parsed.y} concursos sem sair`
-          }
+          callbacks: { label: ctx => `${ctx.parsed.y} concursos sem sair` }
         }
       }
     }
   });
 }
 
-/* ---------- Faixas ---------- */
 function renderFaixas() {
-  destroyChart('faixa');
+  if (charts.faixa) { charts.faixa.destroy(); delete charts.faixa; }
   const medias = calcFaixas();
   const labels = ['01–05', '06–10', '11–15', '16–20', '21–25'];
-  const cores = [CORES.red, CORES.orange, CORES.gold, CORES.green, CORES.blue];
+  const cores = [CORES.red, CORES.orange, CORES.yellow, CORES.green, CORES.blue];
 
   charts.faixa = new Chart($('chartFaixa'), {
     type: 'bar',
@@ -463,18 +506,15 @@ function renderFaixas() {
         ...configBase().plugins,
         tooltip: {
           ...configBase().plugins.tooltip,
-          callbacks: {
-            label: ctx => `${ctx.parsed.y.toFixed(2)} números/concurso`
-          }
+          callbacks: { label: ctx => `${ctx.parsed.y.toFixed(2)} números/concurso` }
         }
       }
     }
   });
 }
 
-/* ---------- Soma ---------- */
 function renderSoma() {
-  destroyChart('soma');
+  if (charts.soma) { charts.soma.destroy(); delete charts.soma; }
   const somas = calcSomas();
   const media = somas.reduce((a, b) => a + b, 0) / somas.length;
   const desvio = Math.sqrt(somas.reduce((a, b) => a + (b - media) ** 2, 0) / somas.length);
@@ -509,10 +549,7 @@ function renderSoma() {
       },
       scales: {
         ...configBase().scales,
-        x: {
-          ...configBase().scales.x,
-          ticks: { ...configBase().scales.x.ticks, maxTicksLimit: 8 }
-        }
+        x: { ...configBase().scales.x, ticks: { ...configBase().scales.x.ticks, maxTicksLimit: 8 } }
       }
     }
   });
@@ -525,9 +562,8 @@ function renderSoma() {
   `;
 }
 
-/* ---------- Repetidos ---------- */
 function renderRepetidos() {
-  destroyChart('rep');
+  if (charts.rep) { charts.rep.destroy(); delete charts.rep; }
   const rep = calcRepetidos();
   if (rep.length === 0) return;
   const media = rep.reduce((a, b) => a + b, 0) / rep.length;
@@ -540,7 +576,7 @@ function renderRepetidos() {
       labels,
       datasets: [{
         data: bins,
-        backgroundColor: CORES.purple,
+        backgroundColor: CORES.magenta,
         borderWidth: 0,
         barPercentage: 0.85,
         categoryPercentage: 0.9
@@ -552,9 +588,7 @@ function renderRepetidos() {
         ...configBase().plugins,
         tooltip: {
           ...configBase().plugins.tooltip,
-          callbacks: {
-            label: ctx => `${ctx.parsed.y} concursos`
-          }
+          callbacks: { label: ctx => `${ctx.parsed.y} concursos` }
         }
       }
     }
@@ -568,7 +602,7 @@ function renderRepetidos() {
 }
 
 /* ============================================================
-   GERADOR COM FILTROS PROBABILÍSTICOS
+   GERADOR
    ============================================================ */
 
 function shuffle(arr) {
@@ -591,7 +625,6 @@ function temSequenciaLonga(jogo, maxSeq = 4) {
 
 function gerarJogo() {
   if (concursos.length === 0) return null;
-
   const ultimo = concursos[concursos.length - 1];
   const somas = calcSomas();
   const mediaSoma = somas.reduce((a, b) => a + b, 0) / somas.length;
@@ -625,12 +658,18 @@ function gerarJogo() {
 }
 
 function renderJogo() {
-  const jogo = gerarJogo();
   const el = $('jogoGerado');
   const info = $('jogoInfo');
 
+  if (concursos.length === 0) {
+    el.innerHTML = '<div style="grid-column:1/-1; text-align:center; color:#a0a0a0; font-size:.8rem; padding:20px;">Carregue a planilha primeiro</div>';
+    info.textContent = '';
+    return;
+  }
+
+  const jogo = gerarJogo();
   if (!jogo) {
-    el.innerHTML = '<div style="grid-column:1/-1; text-align:center; color:var(--muted); font-size:.8rem; padding:20px;">Carregue a planilha para gerar</div>';
+    el.innerHTML = '<div style="grid-column:1/-1; text-align:center; color:#a0a0a0; font-size:.8rem; padding:20px;">Não foi possível gerar</div>';
     info.textContent = '';
     return;
   }
@@ -652,7 +691,7 @@ function renderJogo() {
 
 function conferir() {
   if (concursos.length === 0) {
-    $('conferirResult').innerHTML = '<span style="color:var(--red)">Carregue a planilha primeiro</span>';
+    $('conferirResult').innerHTML = '<span style="color:#d13438">Carregue a planilha primeiro</span>';
     return;
   }
 
@@ -660,7 +699,7 @@ function conferir() {
     .split(/[\s,;]+/).map(Number).filter(n => n >= 1 && n <= 25);
 
   if (nums.length !== 15) {
-    $('conferirResult').innerHTML = '<span style="color:var(--red)">Digite exatamente 15 números</span>';
+    $('conferirResult').innerHTML = '<span style="color:#d13438">Digite exatamente 15 números</span>';
     return;
   }
 
@@ -673,10 +712,10 @@ function conferir() {
 
   const linhas = Object.keys(dist).sort((a, b) => b - a).map(k => {
     const pct = (dist[k] / concursos.length * 100).toFixed(1);
-    const cor = k >= 14 ? 'var(--gold)' : k >= 12 ? 'var(--green)' : 'var(--muted)';
+    const cor = k >= 14 ? '#ffb900' : k >= 12 ? '#107c10' : '#a0a0a0';
     return `<div style="display:flex; justify-content:space-between; padding:4px 0;">
       <span style="color:${cor}">${k} acertos</span>
-      <span><b>${dist[k]}</b> <span style="color:var(--muted)">(${pct}%)</span></span>
+      <span><b>${dist[k]}</b> <span style="color:#a0a0a0">(${pct}%)</span></span>
     </div>`;
   }).join('');
 
@@ -684,32 +723,28 @@ function conferir() {
 }
 
 /* ============================================================
-   RENDER GERAL
-   ============================================================ */
-
-function renderTudo() {
-  validarDados();
-  renderDonut();
-  renderFreq();
-  renderAtraso();
-  renderFaixas();
-  renderSoma();
-  renderRepetidos();
-  renderJogo();
-}
-
-/* ============================================================
    EVENTOS
    ============================================================ */
 
-$('uploadZone').addEventListener('click', () => $('fileInput').click());
+// Navegação por tiles
+document.querySelectorAll('[data-screen]').forEach(el => {
+  el.addEventListener('click', () => navegarPara(el.dataset.screen));
+});
 
+// Botões voltar
+document.querySelectorAll('[data-back]').forEach(el => {
+  el.addEventListener('click', () => navegarPara('home'));
+});
+
+// Upload
+$('uploadZone').addEventListener('click', () => $('fileInput').click());
 $('fileInput').addEventListener('change', e => {
   const file = e.target.files[0];
   if (file) processarArquivo(file);
 });
 
-$('fabGerar').addEventListener('click', renderJogo);
+// Ações
+$('gerarNovamente').addEventListener('click', renderJogo);
 $('conferirBtn').addEventListener('click', conferir);
 $('limparBtn').addEventListener('click', () => {
   $('conferirInput').value = '';
@@ -727,9 +762,8 @@ $('limparBtn').addEventListener('click', () => {
   if (cache) {
     concursos = cache;
     setBadge(`${concursos.length} concursos`, true);
-    renderTudo();
-    toast('✓ Dados restaurados');
+    toast(`✓ ${concursos.length} concursos restaurados`);
   } else {
-    setBadge('aguardando arquivo');
+    setBadge('aguardando');
   }
 })();
