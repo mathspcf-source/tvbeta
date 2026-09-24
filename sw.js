@@ -1,22 +1,18 @@
 /* ============================================================
    Service Worker — LotoFácil PWA
-   Cache-first para assets, network-first para CDN externos
+   Versão compatível com Chrome Android (WebAPK)
    ============================================================ */
 
-const CACHE_NAME = 'lotofacil-v1';
-const CACHE_EXTERNOS = 'lotofacil-cdn-v1';
+const CACHE_NAME = 'lotofacil-v2';
+const CACHE_CDN = 'lotofacil-cdn-v2';
 
-// Assets locais (obrigatórios para funcionar offline)
 const ASSETS_LOCAIS = [
   './',
   './index.html',
   './app.js',
-  './manifest.json',
-  './icons/icon-192.png',
-  './icons/icon-512.png'
+  './manifest.json'
 ];
 
-// CDN externos (Chart.js e XLSX) — cacheados na primeira visita
 const ASSETS_CDN = [
   'https://cdn.jsdelivr.net/npm/chart.js@4.4.1/dist/chart.umd.min.js',
   'https://cdn.jsdelivr.net/npm/xlsx@0.18.5/dist/xlsx.full.min.js'
@@ -29,8 +25,7 @@ self.addEventListener('install', event => {
       const cacheLocal = await caches.open(CACHE_NAME);
       await cacheLocal.addAll(ASSETS_LOCAIS);
 
-      const cacheCDN = await caches.open(CACHE_EXTERNOS);
-      // Não falha se algum CDN não estiver disponível
+      const cacheCDN = await caches.open(CACHE_CDN);
       await Promise.allSettled(
         ASSETS_CDN.map(url =>
           fetch(url, { mode: 'cors' })
@@ -51,7 +46,7 @@ self.addEventListener('activate', event => {
       const cachesAtuais = await caches.keys();
       await Promise.all(
         cachesAtuais
-          .filter(nome => nome !== CACHE_NAME && nome !== CACHE_EXTERNOS)
+          .filter(nome => nome !== CACHE_NAME && nome !== CACHE_CDN)
           .map(nome => caches.delete(nome))
       );
       self.clients.claim();
@@ -59,15 +54,14 @@ self.addEventListener('activate', event => {
   );
 });
 
-/* ---------- FETCH ---------- */
+/* ---------- FETCH (obrigatório para Chrome Android) ---------- */
 self.addEventListener('fetch', event => {
   const { request } = event;
   const url = new URL(request.url);
 
-  // Ignora métodos não-GET
   if (request.method !== 'GET') return;
 
-  // Assets locais → cache-first
+  // Locais → cache-first
   if (url.origin === self.location.origin) {
     event.respondWith(
       caches.match(request).then(cached => {
@@ -84,14 +78,14 @@ self.addEventListener('fetch', event => {
     return;
   }
 
-  // CDN externos → cache-first com fallback para rede
+  // CDN → cache-first
   if (ASSETS_CDN.some(u => request.url.startsWith(u.split('?')[0]))) {
     event.respondWith(
       caches.match(request).then(cached => {
         if (cached) return cached;
         return fetch(request).then(res => {
           const clone = res.clone();
-          caches.open(CACHE_EXTERNOS).then(c => c.put(request, clone));
+          caches.open(CACHE_CDN).then(c => c.put(request, clone));
           return res;
         });
       })
