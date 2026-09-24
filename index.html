@@ -3,46 +3,66 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
-<meta name="theme-color" content="#0a0a0a">
-<title>🍀 Lotofácil</title>
+<meta name="theme-color" content="#000000">
+<title>LotoFácil</title>
 <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.1/dist/chart.umd.min.js"></script>
 <script src="https://cdn.jsdelivr.net/npm/xlsx@0.18.5/dist/xlsx.full.min.js"></script>
 <style>
   :root {
-    --bg:#0a0a0a;
-    --tile:#161616;
-    --tile2:#1f1f1f;
-    --border:#2a2a2a;
+    --bg:#000000;
+    --tile-red:#d13438;
+    --tile-green:#107c10;
+    --tile-blue:#0078d7;
+    --tile-cyan:#00b7c3;
+    --tile-purple:#8764b8;
+    --tile-orange:#ff8c00;
+    --tile-yellow:#ffb900;
+    --tile-magenta:#e3008c;
+    --tile-teal:#008272;
+    --tile-dark:#1f1f1f;
+    --tile-dark2:#2b2b2b;
     --text:#ffffff;
-    --muted:#8a8a8a;
-    --gold:#d4af37;
-    --gold2:#f4d03f;
-    --red:#e63946;
-    --green:#2ecc71;
-    --blue:#3498db;
-    --purple:#9b59b6;
-    --orange:#e67e22;
-    --cyan:#1abc9c;
-    --font: -apple-system, BlinkMacSystemFont, 'Segoe UI', 'Roboto', 'Helvetica Neue', Arial, sans-serif;
-    --font-mono: 'SF Mono', 'Roboto Mono', 'Courier New', monospace;
+    --muted:#a0a0a0;
+    --font: 'Segoe UI', -apple-system, BlinkMacSystemFont, Roboto, 'Helvetica Neue', sans-serif;
   }
   * { margin:0; padding:0; box-sizing:border-box; -webkit-tap-highlight-color:transparent; }
-  html { font-size:16px; }
+  html, body { overscroll-behavior:none; }
   body {
     font-family:var(--font);
     background:var(--bg);
     color:var(--text);
     min-height:100vh;
-    padding-bottom:100px;
     overflow-x:hidden;
     font-weight:300;
-    letter-spacing:.01em;
     -webkit-font-smoothing:antialiased;
+    padding-bottom:80px;
   }
+
+  /* ===== STATUS BAR (fake Nokia) ===== */
+  .statusbar {
+    display:flex;
+    justify-content:space-between;
+    align-items:center;
+    padding:6px 14px;
+    font-size:.7rem;
+    color:#fff;
+    letter-spacing:.05em;
+    font-weight:400;
+    background:#000;
+    position:sticky;
+    top:0;
+    z-index:100;
+  }
+  .statusbar .left, .statusbar .right {
+    display:flex;
+    align-items:center;
+    gap:8px;
+  }
+  .statusbar svg { width:12px; height:12px; fill:#fff; }
 
   /* ===== HEADER ===== */
   header {
-    padding:24px 20px 16px;
+    padding:16px 16px 12px;
     display:flex;
     justify-content:space-between;
     align-items:flex-start;
@@ -50,176 +70,247 @@
     margin:0 auto;
   }
   .brand h1 {
-    font-size:2rem;
+    font-size:1.8rem;
     font-weight:200;
-    letter-spacing:.15em;
-    text-transform:uppercase;
+    letter-spacing:.02em;
     color:#fff;
     line-height:1;
   }
   .brand h1 b {
-    font-weight:700;
-    color:var(--gold);
-    text-shadow:0 0 24px rgba(212,175,55,.5);
+    font-weight:600;
+    color:var(--tile-yellow);
   }
   .brand .sub {
     font-size:.7rem;
     color:var(--muted);
-    letter-spacing:.3em;
+    letter-spacing:.15em;
     text-transform:uppercase;
-    margin-top:8px;
+    margin-top:6px;
     font-weight:400;
   }
   .badge {
     display:inline-flex;
     align-items:center;
     gap:6px;
-    padding:6px 12px;
-    border-radius:2px;
-    background:var(--tile);
-    border:1px solid var(--border);
-    font-size:.7rem;
+    padding:5px 10px;
+    background:var(--tile-dark);
+    font-size:.65rem;
     letter-spacing:.1em;
     text-transform:uppercase;
     color:var(--muted);
-    margin-top:12px;
     font-weight:400;
   }
   .badge .dot {
     width:6px; height:6px;
-    border-radius:50%;
     background:var(--muted);
   }
-  .badge.on .dot { background:var(--green); box-shadow:0 0 8px var(--green); }
-  .badge.on { color:var(--text); }
+  .badge.on { color:#fff; }
+  .badge.on .dot { background:#7fba00; box-shadow:0 0 6px #7fba00; }
 
-  /* ===== CONTAINER ===== */
-  .container {
+  /* ===== TELA (transição Metro) ===== */
+  .screen {
     max-width:640px;
     margin:0 auto;
-    padding:0 16px;
+    padding:0 8px;
+    display:none;
+  }
+  .screen.active {
+    display:block;
+    animation:screenIn .35s cubic-bezier(.1,.9,.2,1);
+  }
+  @keyframes screenIn {
+    from {
+      opacity:0;
+      transform:translateX(40px) scale(.96);
+    }
+    to {
+      opacity:1;
+      transform:translateX(0) scale(1);
+    }
+  }
+  .screen.exit {
+    animation:screenOut .25s cubic-bezier(.4,0,1,1) forwards;
+  }
+  @keyframes screenOut {
+    from { opacity:1; transform:translateX(0) scale(1); }
+    to { opacity:0; transform:translateX(-40px) scale(.96); }
   }
 
-  /* ===== TILES (estilo Lumia) ===== */
+  /* ===== TILES GRID ===== */
+  .tiles {
+    display:grid;
+    grid-template-columns:repeat(4, 1fr);
+    gap:4px;
+    padding:8px 0;
+  }
   .tile {
-    background:var(--tile);
-    padding:20px;
-    margin-bottom:8px;
     position:relative;
-    border-left:3px solid var(--gold);
-    transition:transform .2s ease;
+    background:var(--tile-dark);
+    cursor:pointer;
+    display:flex;
+    flex-direction:column;
+    justify-content:space-between;
+    padding:12px;
+    color:#fff;
+    transition:transform .15s ease;
+    overflow:hidden;
+    min-height:90px;
   }
-  .tile:active { transform:scale(.98); }
+  .tile:active { transform:scale(.96); }
+  .tile.wide { grid-column:span 2; }
+  .tile.big { grid-column:span 2; grid-row:span 2; min-height:184px; }
+  .tile .icon {
+    width:32px; height:32px;
+    fill:#fff;
+  }
+  .tile .icon svg { width:100%; height:100%; fill:#fff; }
   .tile .label {
-    font-size:.65rem;
-    letter-spacing:.25em;
-    text-transform:uppercase;
-    color:var(--muted);
-    margin-bottom:12px;
+    font-size:.8rem;
     font-weight:400;
+    letter-spacing:.02em;
+    line-height:1.2;
+    margin-top:auto;
   }
-  .tile h2 {
-    font-size:1.1rem;
+  .tile .value {
+    font-size:1.8rem;
     font-weight:200;
+    line-height:1;
+    margin-top:8px;
+  }
+  .tile .value b {
+    font-weight:600;
+  }
+  /* Cores Metro */
+  .tile.red { background:var(--tile-red); }
+  .tile.green { background:var(--tile-green); }
+  .tile.blue { background:var(--tile-blue); }
+  .tile.cyan { background:var(--tile-cyan); }
+  .tile.purple { background:var(--tile-purple); }
+  .tile.orange { background:var(--tile-orange); }
+  .tile.yellow { background:var(--tile-yellow); color:#000; }
+  .tile.yellow .icon svg { fill:#000; }
+  .tile.yellow .label { color:#000; }
+  .tile.magenta { background:var(--tile-magenta); }
+  .tile.teal { background:var(--tile-teal); }
+
+  /* ===== TILE DE VOLTAR ===== */
+  .back-tile {
+    background:var(--tile-dark);
+    padding:10px 14px;
+    margin:8px 8px 4px;
+    display:inline-flex;
+    align-items:center;
+    gap:10px;
+    cursor:pointer;
+    font-size:.8rem;
     letter-spacing:.05em;
     color:#fff;
-    margin-bottom:16px;
+    font-weight:400;
   }
-  .tile h2 b { font-weight:700; color:var(--gold); }
+  .back-tile:active { background:var(--tile-dark2); }
+  .back-tile svg { width:16px; height:16px; fill:#fff; }
 
-  /* Tile variations */
-  .tile.gold { border-left-color:var(--gold); }
-  .tile.green { border-left-color:var(--green); }
-  .tile.red { border-left-color:var(--red); }
-  .tile.blue { border-left-color:var(--blue); }
-  .tile.purple { border-left-color:var(--purple); }
-  .tile.orange { border-left-color:var(--orange); }
-  .tile.cyan { border-left-color:var(--cyan); }
+  /* ===== CONTENT TILES ===== */
+  .panel {
+    background:var(--tile-dark);
+    padding:20px;
+    margin:4px 0;
+  }
+  .panel h2 {
+    font-size:1.2rem;
+    font-weight:200;
+    letter-spacing:.02em;
+    margin-bottom:4px;
+  }
+  .panel h2 b { font-weight:600; }
+  .panel .sub {
+    font-size:.7rem;
+    color:var(--muted);
+    letter-spacing:.15em;
+    text-transform:uppercase;
+    margin-bottom:16px;
+    font-weight:400;
+  }
+  .panel .section-title {
+    font-size:.75rem;
+    color:var(--muted);
+    letter-spacing:.15em;
+    text-transform:uppercase;
+    margin-bottom:10px;
+    font-weight:400;
+  }
 
   /* ===== UPLOAD ===== */
   .upload {
-    background:var(--tile);
-    padding:40px 20px;
+    background:var(--tile-dark);
+    padding:36px 20px;
     text-align:center;
-    border:1px dashed var(--border);
     cursor:pointer;
     transition:.2s;
-    margin-bottom:8px;
+    margin:4px 0;
+    border:1px solid var(--tile-dark2);
   }
-  .upload:active {
-    background:var(--tile2);
-    border-color:var(--gold);
-  }
+  .upload:active { background:var(--tile-dark2); }
   .upload .icon {
-    font-size:2rem;
-    margin-bottom:12px;
-    opacity:.8;
+    width:48px; height:48px;
+    margin:0 auto 16px;
+    fill:var(--tile-yellow);
   }
+  .upload .icon svg { width:100%; height:100%; fill:var(--tile-yellow); }
   .upload .title {
-    font-size:.9rem;
+    font-size:1rem;
     font-weight:400;
-    letter-spacing:.1em;
-    text-transform:uppercase;
+    letter-spacing:.02em;
     color:#fff;
     margin-bottom:6px;
   }
   .upload .sub {
-    font-size:.7rem;
+    font-size:.75rem;
     color:var(--muted);
-    letter-spacing:.05em;
   }
   input[type=file] { display:none; }
 
-  /* ===== TEXTO ===== */
+  /* ===== INPUTS ===== */
   textarea {
     width:100%;
-    min-height:100px;
-    background:var(--bg);
-    color:var(--text);
-    border:1px solid var(--border);
-    padding:14px;
-    font-family:var(--font-mono);
-    font-size:.8rem;
+    min-height:80px;
+    background:#000;
+    color:#fff;
+    border:1px solid var(--tile-dark2);
+    padding:12px;
+    font-family:var(--font);
+    font-size:.85rem;
+    font-weight:300;
     resize:vertical;
     outline:none;
     transition:.2s;
-    line-height:1.6;
   }
-  textarea:focus { border-color:var(--gold); }
+  textarea:focus { border-color:var(--tile-blue); }
 
   /* ===== BOTÕES ===== */
   .btn {
     width:100%;
-    padding:16px;
+    padding:14px;
     border:none;
     font-family:var(--font);
-    font-size:.75rem;
-    font-weight:600;
-    letter-spacing:.2em;
+    font-size:.8rem;
+    font-weight:400;
+    letter-spacing:.1em;
     text-transform:uppercase;
     cursor:pointer;
-    transition:.2s;
-    background:var(--tile2);
+    transition:.15s;
+    background:var(--tile-dark2);
     color:#fff;
-    border:1px solid var(--border);
   }
   .btn:active { transform:scale(.98); }
-  .btn.gold {
-    background:var(--gold);
-    color:#0a0a0a;
-    border-color:var(--gold);
-    font-weight:700;
-  }
-  .btn.gold:active { background:var(--gold2); }
-  .btn.outline {
-    background:transparent;
-    color:var(--gold);
-    border:1px solid var(--gold);
-  }
+  .btn.blue { background:var(--tile-blue); }
+  .btn.green { background:var(--tile-green); }
+  .btn.red { background:var(--tile-red); }
+  .btn.yellow { background:var(--tile-yellow); color:#000; font-weight:600; }
   .btn-row {
     display:grid;
     grid-template-columns:1fr 1fr;
-    gap:8px;
+    gap:4px;
     margin-top:8px;
   }
   .btn-row .btn { margin:0; }
@@ -228,18 +319,16 @@
   .stats {
     display:grid;
     grid-template-columns:repeat(2, 1fr);
-    gap:1px;
-    background:var(--border);
-    margin-top:16px;
+    gap:4px;
+    margin-top:12px;
   }
   .stat {
-    background:var(--tile);
-    padding:16px 12px;
-    text-align:left;
+    background:#000;
+    padding:14px;
   }
   .stat .l {
-    font-size:.6rem;
-    letter-spacing:.2em;
+    font-size:.65rem;
+    letter-spacing:.15em;
     text-transform:uppercase;
     color:var(--muted);
     font-weight:400;
@@ -247,8 +336,8 @@
   .stat .v {
     font-size:1.6rem;
     font-weight:200;
-    color:var(--gold);
-    margin-top:6px;
+    color:var(--tile-yellow);
+    margin-top:4px;
     letter-spacing:-.02em;
     font-variant-numeric:tabular-nums;
   }
@@ -265,7 +354,7 @@
   .jogo {
     display:grid;
     grid-template-columns:repeat(5, 1fr);
-    gap:6px;
+    gap:4px;
     margin-top:12px;
   }
   .bola {
@@ -273,56 +362,54 @@
     display:flex;
     align-items:center;
     justify-content:center;
-    background:var(--tile2);
-    border:1px solid var(--border);
-    font-family:var(--font-mono);
-    font-size:1rem;
-    font-weight:500;
-    color:var(--gold);
+    background:var(--tile-dark2);
+    font-family:var(--font);
+    font-size:1.1rem;
+    font-weight:200;
+    color:var(--tile-yellow);
     transition:.2s;
     animation:pop .3s ease-out backwards;
   }
   @keyframes pop {
-    from { opacity:0; transform:scale(.5); }
+    from { opacity:0; transform:scale(.4); }
     to { opacity:1; transform:scale(1); }
   }
   .bola.hit {
-    background:var(--green);
-    color:#0a0a0a;
-    border-color:var(--green);
-    font-weight:700;
+    background:var(--tile-green);
+    color:#fff;
+    font-weight:400;
   }
 
   /* ===== TABELA ===== */
   .table {
     width:100%;
     border-collapse:collapse;
-    font-size:.8rem;
+    font-size:.85rem;
   }
   .table th {
     text-align:left;
     padding:10px 8px;
-    font-size:.6rem;
-    letter-spacing:.2em;
+    font-size:.65rem;
+    letter-spacing:.15em;
     text-transform:uppercase;
     color:var(--muted);
     font-weight:400;
-    border-bottom:1px solid var(--border);
+    border-bottom:1px solid var(--tile-dark2);
   }
   .table td {
     padding:14px 8px;
-    border-bottom:1px solid var(--border);
+    border-bottom:1px solid var(--tile-dark2);
     font-variant-numeric:tabular-nums;
+    font-weight:300;
   }
   .table tr:last-child td { border-bottom:none; }
   .table .val {
-    color:var(--gold);
-    font-weight:500;
-    font-family:var(--font-mono);
+    color:var(--tile-yellow);
+    font-weight:400;
   }
   .table .pts {
     color:#fff;
-    font-weight:500;
+    font-weight:400;
   }
   .table .custo {
     color:var(--muted);
@@ -333,60 +420,94 @@
   /* ===== RESULT ===== */
   .result {
     margin-top:12px;
-    font-size:.8rem;
+    font-size:.85rem;
     color:var(--muted);
     line-height:1.8;
-    letter-spacing:.02em;
+    font-weight:300;
   }
-  .result b { color:var(--gold); font-weight:500; }
+  .result b { color:var(--tile-yellow); font-weight:600; }
   .info {
-    font-size:.7rem;
+    font-size:.75rem;
     color:var(--muted);
     line-height:1.7;
-    letter-spacing:.02em;
+    margin-bottom:12px;
+    font-weight:300;
   }
 
-  /* ===== FAB ===== */
-  .fab {
+  /* ===== AVISO ===== */
+  .aviso {
+    background:var(--tile-dark);
+    border-left:4px solid var(--tile-red);
+    padding:16px 20px;
+    font-size:.8rem;
+    line-height:1.7;
+    color:var(--muted);
+    margin:4px 0;
+    font-weight:300;
+  }
+  .aviso b { color:var(--tile-red); font-weight:600; }
+  .aviso .tag {
+    display:inline-block;
+    font-size:.6rem;
+    letter-spacing:.2em;
+    text-transform:uppercase;
+    color:var(--tile-red);
+    margin-bottom:8px;
+    font-weight:400;
+  }
+
+  /* ===== NAV BAR INFERIOR ===== */
+  .navbar {
     position:fixed;
-    bottom:20px;
-    right:20px;
-    width:64px;
-    height:64px;
-    border-radius:0;
-    background:var(--gold);
-    color:#0a0a0a;
-    border:none;
-    font-size:1.4rem;
-    cursor:pointer;
+    bottom:0;
+    left:0;
+    right:0;
+    background:#000;
+    border-top:1px solid var(--tile-dark2);
     display:flex;
+    justify-content:space-around;
     align-items:center;
-    justify-content:center;
-    transition:.2s;
+    padding:8px 0;
     z-index:200;
-    box-shadow:0 0 0 0 rgba(212,175,55,.7);
-    animation:pulse 2.5s infinite;
+    max-width:640px;
+    margin:0 auto;
   }
-  @keyframes pulse {
-    0% { box-shadow:0 0 0 0 rgba(212,175,55,.6); }
-    70% { box-shadow:0 0 0 16px rgba(212,175,55,0); }
-    100% { box-shadow:0 0 0 0 rgba(212,175,55,0); }
+  .navbar .nav-item {
+    flex:1;
+    display:flex;
+    flex-direction:column;
+    align-items:center;
+    gap:4px;
+    padding:8px;
+    cursor:pointer;
+    color:var(--muted);
+    transition:.2s;
+    font-size:.6rem;
+    letter-spacing:.1em;
+    text-transform:uppercase;
+    font-weight:400;
   }
-  .fab:active { transform:scale(.9); }
+  .navbar .nav-item svg {
+    width:20px; height:20px;
+    fill:var(--muted);
+    transition:.2s;
+  }
+  .navbar .nav-item.active { color:#fff; }
+  .navbar .nav-item.active svg { fill:var(--tile-yellow); }
+  .navbar .nav-item:active { background:var(--tile-dark); }
 
   /* ===== TOAST ===== */
   .toast {
     position:fixed;
-    bottom:100px;
+    bottom:90px;
     left:50%;
     transform:translateX(-50%) translateY(100px);
-    background:#0a0a0a;
+    background:#1f1f1f;
     color:#fff;
-    padding:14px 24px;
-    font-size:.75rem;
-    letter-spacing:.15em;
-    text-transform:uppercase;
-    border:1px solid var(--gold);
+    padding:12px 24px;
+    font-size:.8rem;
+    letter-spacing:.02em;
+    border-left:3px solid var(--tile-yellow);
     z-index:300;
     opacity:0;
     transition:.4s cubic-bezier(.4,0,.2,1);
@@ -395,7 +516,7 @@
     white-space:nowrap;
     overflow:hidden;
     text-overflow:ellipsis;
-    font-weight:400;
+    font-weight:300;
   }
   .toast.show {
     opacity:1;
@@ -405,64 +526,51 @@
   /* ===== LOADING ===== */
   .loading {
     display:inline-block;
-    width:12px; height:12px;
-    border:1px solid var(--muted);
-    border-top-color:var(--gold);
+    width:14px; height:14px;
+    border:2px solid var(--tile-dark2);
+    border-top-color:var(--tile-yellow);
+    border-radius:50%;
     animation:spin .8s linear infinite;
     vertical-align:middle;
     margin-right:8px;
   }
   @keyframes spin { to { transform:rotate(360deg); } }
 
-  /* ===== AVISO ===== */
-  .aviso {
-    background:var(--tile);
-    border-left:3px solid var(--red);
-    padding:16px 20px;
-    font-size:.75rem;
-    line-height:1.7;
-    color:var(--muted);
-    letter-spacing:.02em;
-    margin-bottom:8px;
-  }
-  .aviso b { color:var(--red); font-weight:500; }
-  .aviso .tag {
-    display:inline-block;
-    font-size:.6rem;
-    letter-spacing:.25em;
-    text-transform:uppercase;
-    color:var(--red);
-    margin-bottom:8px;
-    font-weight:400;
-  }
-
-  /* ===== SECRET ÁREA ===== */
-  .hidden { display:none; }
-
   /* ===== SCROLLBAR ===== */
   ::-webkit-scrollbar { width:3px; }
-  ::-webkit-scrollbar-track { background:var(--bg); }
-  ::-webkit-scrollbar-thumb { background:var(--border); }
-
-  /* ===== ANIMAÇÕES DE ENTRADA ===== */
-  .fade-in {
-    animation:fadeIn .5s ease-out backwards;
-  }
-  @keyframes fadeIn {
-    from { opacity:0; transform:translateY(8px); }
-    to { opacity:1; transform:translateY(0); }
-  }
+  ::-webkit-scrollbar-track { background:#000; }
+  ::-webkit-scrollbar-thumb { background:var(--tile-dark2); }
 
   /* ===== RESPONSIVE ===== */
-  @media (max-width:360px) {
-    .brand h1 { font-size:1.6rem; }
-    .stat .v { font-size:1.3rem; }
-    .bola { font-size:.85rem; }
+  @media (max-width:380px) {
+    .brand h1 { font-size:1.5rem; }
+    .tile { min-height:80px; padding:10px; }
+    .tile.big { min-height:164px; }
+    .tile .icon { width:28px; height:28px; }
+    .tile .label { font-size:.7rem; }
+    .tile .value { font-size:1.5rem; }
+    .stat .v { font-size:1.4rem; }
+    .bola { font-size:.95rem; }
   }
 </style>
 </head>
 <body>
 
+<!-- Status bar fake Nokia -->
+<div class="statusbar">
+  <div class="left">
+    <svg viewBox="0 0 24 24"><path d="M2 22h20V2L2 22z"/></svg>
+    <span>L</span>
+    <svg viewBox="0 0 24 24"><path d="M12 3C7 3 2.7 5 0 8l12 13L24 8c-2.7-3-7-5-12-5z"/></svg>
+    <svg viewBox="0 0 24 24"><path d="M12 2C6.5 2 2 6.5 2 12s4.5 10 10 10 10-4.5 10-10S17.5 2 12 2zm0 18c-4.4 0-8-3.6-8-8s3.6-8 8-8 8 3.6 8 8-3.6 8-8 8z"/></svg>
+    <svg viewBox="0 0 24 24"><path d="M12 2C6.5 2 2 6.5 2 12s4.5 10 10 10 10-4.5 10-10S17.5 2 12 2zm0 18c-4.4 0-8-3.6-8-8s3.6-8 8-8 8 3.6 8 8-3.6 8-8 8zm-1-13h2v6h-2zm0 8h2v2h-2z"/></svg>
+  </div>
+  <div class="right">
+    <span id="clock">15:20</span>
+  </div>
+</div>
+
+<!-- HEADER -->
 <header>
   <div class="brand">
     <h1>Loto<b>Fácil</b></h1>
@@ -471,115 +579,209 @@
   </div>
 </header>
 
-<div class="container">
+<!-- ============ TELA 1: HOME ============ -->
+<div class="screen active" id="screenHome">
+  <div class="tiles">
 
-  <!-- Aviso -->
-  <div class="aviso fade-in">
-    <div class="tag">⚠ Aviso</div>
-    Este sistema <b>não prevê</b> o próximo sorteio e <b>não aumenta</b> sua chance de ganhar.
-    A probabilidade de 15 acertos é <b>1 em 3.268.760</b>. Jogue com responsabilidade.
+    <!-- Upload -->
+    <div class="tile big red" data-screen="upload">
+      <div class="icon">
+        <svg viewBox="0 0 24 24"><path d="M12 2L4 10h5v10h6V10h5L12 2z"/></svg>
+      </div>
+      <div>
+        <div class="label">Carregar<br>planilha</div>
+      </div>
+    </div>
+
+    <!-- Hipergeométrica -->
+    <div class="tile wide blue" data-screen="prob">
+      <div class="icon">
+        <svg viewBox="0 0 24 24"><path d="M3 3v18h18V3H3zm16 16H5V5h14v14zM7 7h2v2H7V7zm4 0h2v2h-2V7zm4 0h2v2h-2V7zM7 11h2v2H7v-2zm4 0h2v2h-2v-2zm4 0h2v2h-2v-2zM7 15h2v2H7v-2zm4 0h2v2h-2v-2z"/></svg>
+      </div>
+      <div>
+        <div class="label">Probabilidade<br>hipergeométrica</div>
+      </div>
+    </div>
+
+    <!-- Pares x Ímpares -->
+    <div class="tile cyan" data-screen="pares">
+      <div class="icon">
+        <svg viewBox="0 0 24 24"><path d="M12 2C6.5 2 2 6.5 2 12s4.5 10 10 10 10-4.5 10-10S17.5 2 12 2zm0 18c-4.4 0-8-3.6-8-8s3.6-8 8-8 8 3.6 8 8-3.6 8-8 8zm0-14c-3.3 0-6 2.7-6 6s2.7 6 6 6 6-2.7 6-6-2.7-6-6-6z"/></svg>
+      </div>
+      <div class="label">Pares<br>×Ímpares</div>
+    </div>
+
+    <!-- Frequência -->
+    <div class="tile orange" data-screen="freq">
+      <div class="icon">
+        <svg viewBox="0 0 24 24"><path d="M5 9.2h3V19H5V9.2zM10.6 5h2.8v14h-2.8V5zm5.6 8H19v6h-2.8v-6z"/></svg>
+      </div>
+      <div class="label">Frequência</div>
+    </div>
+
+    <!-- Atraso -->
+    <div class="tile purple" data-screen="atraso">
+      <div class="icon">
+        <svg viewBox="0 0 24 24"><path d="M12 2C6.5 2 2 6.5 2 12s4.5 10 10 10 10-4.5 10-10S17.5 2 12 2zm0 18c-4.4 0-8-3.6-8-8s3.6-8 8-8 8 3.6 8 8-3.6 8-8 8zm.5-13H11v6l5.2 3.2.8-1.3-4.5-2.7V7z"/></svg>
+      </div>
+      <div class="label">Atraso</div>
+    </div>
+
+    <!-- Faixas -->
+    <div class="tile teal" data-screen="faixas">
+      <div class="icon">
+        <svg viewBox="0 0 24 24"><path d="M3 3h8v8H3V3zm10 0h8v8h-8V3zM3 13h8v8H3v-8zm10 0h8v8h-8v-8z"/></svg>
+      </div>
+      <div class="label">Faixas</div>
+    </div>
+
+    <!-- Soma -->
+    <div class="tile green" data-screen="soma">
+      <div class="icon">
+        <svg viewBox="0 0 24 24"><path d="M19 13h-6v6h-2v-6H5v-2h6V5h2v6h6v2z"/></svg>
+      </div>
+      <div class="label">Soma</div>
+    </div>
+
+    <!-- Repetidos -->
+    <div class="tile magenta" data-screen="repetidos">
+      <div class="icon">
+        <svg viewBox="0 0 24 24"><path d="M17.65 6.35A8 8 0 1 0 19.73 14h-2.08A6 6 0 1 1 12 6c1.66 0 3.14.69 4.22 1.78L13 11h7V4l-2.35 2.35z"/></svg>
+      </div>
+      <div class="label">Repetidos</div>
+    </div>
+
+    <!-- Gerar Jogo -->
+    <div class="tile big yellow" data-screen="gerar">
+      <div class="icon">
+        <svg viewBox="0 0 24 24"><path d="M12 2l2.4 7.4H22l-6.2 4.5 2.4 7.4L12 16.8 5.8 21.3l2.4-7.4L2 9.4h7.6L12 2z"/></svg>
+      </div>
+      <div>
+        <div class="label">Gerar<br>jogo</div>
+      </div>
+    </div>
+
+    <!-- Conferidor -->
+    <div class="tile wide green" data-screen="conferir">
+      <div class="icon">
+        <svg viewBox="0 0 24 24"><path d="M9 16.17L4.83 12l-1.42 1.41L9 19 21 7l-1.41-1.41L9 16.17z"/></svg>
+      </div>
+      <div class="label">Conferir jogo</div>
+    </div>
+
+    <!-- Validação -->
+    <div class="tile wide purple" data-screen="validacao">
+      <div class="icon">
+        <svg viewBox="0 0 24 24"><path d="M12 1L3 5v6c0 5.55 3.84 10.74 9 12 5.16-1.26 9-6.45 9-12V5l-9-4zm0 10.99h7c-.53 4.12-3.28 7.79-7 8.94V12H5V6.3l7-3.11v8.8z"/></svg>
+      </div>
+      <div class="label">Validação</div>
+    </div>
+
   </div>
+</div>
 
-  <!-- Upload -->
-  <div class="upload fade-in" id="uploadZone">
-    <div class="icon">▣</div>
-    <div class="title">Carregar planilha</div>
-    <div class="sub">Toque para selecionar o arquivo XLSX</div>
+<!-- ============ TELA 2: UPLOAD ============ -->
+<div class="screen" id="screenUpload">
+  <div class="back-tile" data-back>
+    <svg viewBox="0 0 24 24"><path d="M20 11H7.83l5.59-5.59L12 4l-8 8 8 8 1.41-1.41L7.83 13H20v-2z"/></svg>
+    <span>Voltar</span>
+  </div>
+  <div class="upload" id="uploadZone">
+    <div class="icon">
+      <svg viewBox="0 0 24 24"><path d="M12 2L4 10h5v10h6V10h5L12 2z"/></svg>
+    </div>
+    <div class="title">Carregar planilha XLSX</div>
+    <div class="sub">Toque para selecionar o arquivo</div>
   </div>
   <input type="file" id="fileInput" accept=".xlsx,.xls,.csv,.txt">
-
-  <!-- Validação -->
-  <div class="tile green fade-in hidden" id="tileValidacao">
-    <div class="label">Integridade</div>
-    <div class="result" id="validacao"></div>
+  <div class="panel" style="margin-top:4px;">
+    <div class="sub">Formato esperado</div>
+    <div class="info">Arquivo da As Loterias com colunas <b>Concurso</b>, <b>Data</b> e <b>bola 1</b> até <b>bola 15</b>.</div>
   </div>
+</div>
 
-  <!-- Hipergeométrica -->
-  <div class="tile gold fade-in">
-    <div class="label">Probabilidade real</div>
+<!-- ============ TELA 3: PROBABILIDADE ============ -->
+<div class="screen" id="screenProb">
+  <div class="back-tile" data-back>
+    <svg viewBox="0 0 24 24"><path d="M20 11H7.83l5.59-5.59L12 4l-8 8 8 8 1.41-1.41L7.83 13H20v-2z"/></svg>
+    <span>Voltar</span>
+  </div>
+  <div class="panel">
     <h2>Distribuição <b>hipergeométrica</b></h2>
-    <p class="info">Matemática exata — não é estimativa.</p>
+    <div class="sub">Matemática exata — não é estimativa</div>
     <table class="table" id="tabelaProb">
-      <thead>
-        <tr><th>Acertos</th><th>Probabilidade</th><th style="text-align:right">Custo</th></tr>
-      </thead>
+      <thead><tr><th>Acertos</th><th>Probabilidade</th><th style="text-align:right">Custo</th></tr></thead>
       <tbody></tbody>
     </table>
   </div>
+</div>
 
-  <!-- Donut -->
-  <div class="tile purple fade-in">
-    <div class="label">Distribuição</div>
-    <h2>Pares <b>×</b> Ímpares</h2>
+<!-- ============ TELA 4: PARES ============ -->
+<div class="screen" id="screenPares">
+  <div class="back-tile" data-back>
+    <svg viewBox="0 0 24 24"><path d="M20 11H7.83l5.59-5.59L12 4l-8 8 8 8 1.41-1.41L7.83 13H20v-2z"/></svg>
+    <span>Voltar</span>
+  </div>
+  <div class="panel">
+    <h2>Pares <b>× Ímpares</b></h2>
+    <div class="sub">Distribuição histórica</div>
     <div class="chart-wrap"><canvas id="donutPares"></canvas></div>
   </div>
+</div>
 
-  <!-- Frequência -->
-  <div class="tile orange fade-in">
-    <div class="label">Histórico</div>
+<!-- ============ TELA 5: FREQUÊNCIA ============ -->
+<div class="screen" id="screenFreq">
+  <div class="back-tile" data-back>
+    <svg viewBox="0 0 24 24"><path d="M20 11H7.83l5.59-5.59L12 4l-8 8 8 8 1.41-1.41L7.83 13H20v-2z"/></svg>
+    <span>Voltar</span>
+  </div>
+  <div class="panel">
     <h2>Frequência <b>dos números</b></h2>
+    <div class="sub">Aparições no histórico</div>
     <div class="chart-wrap tall"><canvas id="chartFreq"></canvas></div>
   </div>
+</div>
 
-  <!-- Atraso -->
-  <div class="tile red fade-in">
-    <div class="label">Informativo</div>
+<!-- ============ TELA 6: ATRASO ============ -->
+<div class="screen" id="screenAtraso">
+  <div class="back-tile" data-back>
+    <svg viewBox="0 0 24 24"><path d="M20 11H7.83l5.59-5.59L12 4l-8 8 8 8 1.41-1.41L7.83 13H20v-2z"/></svg>
+    <span>Voltar</span>
+  </div>
+  <div class="panel">
     <h2>Atraso <b>por número</b></h2>
+    <div class="sub">Informativo — não preditivo</div>
     <div class="chart-wrap tall"><canvas id="chartAtraso"></canvas></div>
   </div>
+</div>
 
-  <!-- Faixas -->
-  <div class="tile cyan fade-in">
-    <div class="label">Distribuição</div>
+<!-- ============ TELA 7: FAIXAS ============ -->
+<div class="screen" id="screenFaixas">
+  <div class="back-tile" data-back>
+    <svg viewBox="0 0 24 24"><path d="M20 11H7.83l5.59-5.59L12 4l-8 8 8 8 1.41-1.41L7.83 13H20v-2z"/></svg>
+    <span>Voltar</span>
+  </div>
+  <div class="panel">
     <h2>Faixas <b>do volante</b></h2>
+    <div class="sub">Distribuição por intervalo</div>
     <div class="chart-wrap"><canvas id="chartFaixa"></canvas></div>
   </div>
+</div>
 
-  <!-- Soma -->
-  <div class="tile blue fade-in">
-    <div class="label">Distribuição</div>
+<!-- ============ TELA 8: SOMA ============ -->
+<div class="screen" id="screenSoma">
+  <div class="back-tile" data-back>
+    <svg viewBox="0 0 24 24"><path d="M20 11H7.83l5.59-5.59L12 4l-8 8 8 8 1.41-1.41L7.83 13H20v-2z"/></svg>
+    <span>Voltar</span>
+  </div>
+  <div class="panel">
     <h2>Soma <b>dos 15 números</b></h2>
+    <div class="sub">Distribuição histórica</div>
     <div class="chart-wrap"><canvas id="chartSoma"></canvas></div>
     <div class="stats" id="somaStats"></div>
   </div>
-
-  <!-- Repetidos -->
-  <div class="tile purple fade-in">
-    <div class="label">Distribuição</div>
-    <h2>Repetidos <b>do anterior</b></h2>
-    <div class="chart-wrap"><canvas id="chartRepetidos"></canvas></div>
-    <div class="stats" id="repStats"></div>
-  </div>
-
-  <!-- Jogo gerado -->
-  <div class="tile gold fade-in">
-    <div class="label">Sugestão</div>
-    <h2>Jogo <b>gerado</b></h2>
-    <div class="jogo" id="jogoGerado"></div>
-    <div class="result" id="jogoInfo"></div>
-  </div>
-
-  <!-- Conferidor -->
-  <div class="tile green fade-in">
-    <div class="label">Conferência</div>
-    <h2>Conferir <b>jogo</b></h2>
-    <p class="info">Digite 15 números para ver quantos acertos teria tido no histórico.</p>
-    <textarea id="conferirInput" placeholder="01 02 03 05 07 09 11 13 15 17 19 21 23 24 25"></textarea>
-    <div class="btn-row">
-      <button class="btn outline" id="conferirBtn">Conferir</button>
-      <button class="btn outline" id="limparBtn">Limpar</button>
-    </div>
-    <div class="result" id="conferirResult"></div>
-  </div>
-
 </div>
 
-<!-- FAB -->
-<button class="fab" id="fabGerar">🎲</button>
-
-<!-- Toast -->
-<div class="toast" id="toast"></div>
-
-<script src="app.js"></script>
-</body>
-</html>
+<!-- ============ TELA 9: REPETIDOS ============ -->
+<div class="screen" id="screenRepetidos">
+  <div class="back-tile"
