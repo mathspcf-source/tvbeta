@@ -784,4 +784,87 @@
 
 <!-- ============ TELA 9: REPETIDOS ============ -->
 <div class="screen" id="screenRepetidos">
-  <div class="back-tile"
+  <div class="back-tile" data-back>
+    <svg viewBox="0 0 24 24"><path d="M20 11H7.83l5.59-5.59L12 4l-8 8 8 8 1.41-1.41L7.83 13H20v-2z"/></svg>
+    <span>Voltar</span>
+  </div>
+  <div class="panel">
+    <h2>Repetidos <b>do anterior</b></h2>
+    <div class="sub">Quantos números se repetem</div>
+    <div class="chart-wrap"><canvas id="chartRepetidos"></canvas></div>
+    <div class="stats" id="repStats"></div>
+  </div>
+</div>
+
+<!-- ============ TELA 10: GERAR ============ -->
+<div class="screen" id="screenGerar">
+  <div class="back-tile" data-back>
+    <svg viewBox="0 0 24 24"><path d="M20 11H7.83l5.59-5.59L12 4l-8 8 8 8 1.41-1.41L7.83 13H20v-2z"/></svg>
+    <span>Voltar</span>
+  </div>
+  <div class="panel">
+    <h2>Jogo <b>gerado</b></h2>
+    <div class="sub">Filtros probabilísticos aplicados</div>
+    <div class="jogo" id="jogoGerado"></div>
+    <div class="result" id="jogoInfo"></div>
+    <button class="btn yellow" id="gerarNovamente" style="margin-top:16px;">Gerar novamente</button>
+  </div>
+</div>
+
+<!-- ============ TELA 11: CONFERIR ============ -->
+<div class="screen" id="screenConferir">
+  <div class="back-tile" data-back>
+    <svg viewBox="0 0 24 24"><path d="M20 11H7.83l5.59-5.59L12 4l-8 8 8 8 1.41-1.41L7.83 13H20v-2z"/></svg>
+    <span>Voltar</span>
+  </div>
+  <div class="panel">
+    <h2>Conferir <b>jogo</b></h2>
+    <div class="sub">Digite 15 números</div>
+    <textarea id="conferirInput" placeholder="01 02 03 05 07 09 11 13 15 17 19 21 23 24 25"></textarea>
+    <div class="btn-row">
+      <button class="btn green" id="conferirBtn">Conferir</button>
+      <button class="btn" id="limparBtn">Limpar</button>
+    </div>
+    <div class="result" id="conferirResult"></div>
+  </div>
+</div>
+
+<!-- ============ TELA 12: VALIDAÇÃO ============ -->
+<div class="screen" id="screenValidacao">
+  <div class="back-tile" data-back>
+    <svg viewBox="0 0 24 24"><path d="M20 11H7.83l5.59-5.59L12 4l-8 8 8 8 1.41-1.41L7.83 13H20v-2z"/></svg>
+    <span>Voltar</span>
+  </div>
+  <div class="panel">
+    <h2>Validação <b>de integridade</b></h2>
+    <div class="sub">Verificação dos dados</div>
+    <div class="result" id="validacao">Aguardando dados…</div>
+  </div>
+</div>
+
+<!-- NAV BAR -->
+<div class="navbar">
+  <div class="nav-item active" data-screen="home">
+    <svg viewBox="0 0 24 24"><path d="M10 20v-6h4v6h5v-8h3L12 3 2 12h3v8z"/></svg>
+    <span>Home</span>
+  </div>
+  <div class="nav-item" data-screen="gerar">
+    <svg viewBox="0 0 24 24"><path d="M12 2l2.4 7.4H22l-6.2 4.5 2.4 7.4L12 16.8 5.8 21.3l2.4-7.4L2 9.4h7.6L12 2z"/></svg>
+    <span>Gerar</span>
+  </div>
+  <div class="nav-item" data-screen="conferir">
+    <svg viewBox="0 0 24 24"><path d="M9 16.17L4.83 12l-1.42 1.41L9 19 21 7l-1.41-1.41L9 16.17z"/></svg>
+    <span>Conferir</span>
+  </div>
+  <div class="nav-item" data-screen="prob">
+    <svg viewBox="0 0 24 24"><path d="M3 3v18h18V3H3zm16 16H5V5h14v14z"/></svg>
+    <span>Prob.</span>
+  </div>
+</div>
+
+<!-- TOAST -->
+<div class="toast" id="toast"></div>
+
+<script src="app.js"></script>
+</body>
+</html>
