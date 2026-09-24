@@ -1,5 +1,5 @@
 /* ============================================================
-   LotoFácil Casino Analytics — Metro UI
+   LotoFácil Casino Analytics — Metro UI + PWA
    ============================================================ */
 
 const CACHE_KEY = 'lotofacil_metro_v1';
@@ -11,15 +11,22 @@ const charts = {};
 const $ = id => document.getElementById(id);
 const pad = n => String(n).padStart(2, '0');
 
-/* ---------- Relógio ---------- */
+/* ============================================================
+   RELÓGIO
+   ============================================================ */
+
 function atualizarRelogio() {
   const now = new Date();
-  $('clock').textContent = `${String(now.getHours()).padStart(2, '0')}:${String(now.getMinutes()).padStart(2, '0')}`;
+  $('clock').textContent =
+    `${String(now.getHours()).padStart(2, '0')}:${String(now.getMinutes()).padStart(2, '0')}`;
 }
 setInterval(atualizarRelogio, 1000);
 atualizarRelogio();
 
-/* ---------- Toast ---------- */
+/* ============================================================
+   TOAST
+   ============================================================ */
+
 function toast(msg, dur = 2600) {
   const t = $('toast');
   t.textContent = msg;
@@ -28,14 +35,17 @@ function toast(msg, dur = 2600) {
   t._timer = setTimeout(() => t.classList.remove('show'), dur);
 }
 
-/* ---------- Badge ---------- */
+/* ============================================================
+   BADGE
+   ============================================================ */
+
 function setBadge(text, on = false) {
   $('badgeText').textContent = text;
   $('badgeFonte').classList.toggle('on', on);
 }
 
 /* ============================================================
-   NAVEGAÇÃO COM TRANSIÇÃO METRO
+   NAVEGAÇÃO METRO
    ============================================================ */
 
 let telaAtual = 'home';
@@ -47,12 +57,10 @@ function navegarPara(nome) {
   const destino = $('screen' + nome.charAt(0).toUpperCase() + nome.slice(1));
   if (!destino) return;
 
-  // Atualiza nav bar
   document.querySelectorAll('.nav-item').forEach(el => {
     el.classList.toggle('active', el.dataset.screen === nome);
   });
 
-  // Animação de saída
   if (atual) {
     atual.classList.add('exit');
     setTimeout(() => {
@@ -60,8 +68,6 @@ function navegarPara(nome) {
       destino.classList.add('active');
       window.scrollTo({ top: 0, behavior: 'instant' });
       telaAtual = nome;
-
-      // Renderiza gráficos da tela ao entrar (lazy)
       renderTelaEspecifica(nome);
     }, 250);
   } else {
@@ -73,10 +79,8 @@ function navegarPara(nome) {
 
 function renderTelaEspecifica(nome) {
   if (concursos.length === 0) {
-    if (nome !== 'home' && nome !== 'upload') {
-      // Sem dados: só renderiza o que não depende de dados
-      if (nome === 'prob') renderTabelaProb();
-    }
+    if (nome === 'prob') renderTabelaProb();
+    if (nome === 'validacao') validarDados();
     return;
   }
 
@@ -94,18 +98,20 @@ function renderTelaEspecifica(nome) {
 }
 
 /* ============================================================
-   EXTRAÇÃO — APENAS ARQUIVO
+   EXTRAÇÃO DE ARQUIVO
    ============================================================ */
 
 async function processarArquivo(file) {
   setBadge('lendo…');
   toast('Lendo planilha…');
+
   try {
     const data = await file.arrayBuffer();
     const wb = XLSX.read(data, { type: 'array' });
     const ws = wb.Sheets[wb.SheetNames[0]];
     const rows = XLSX.utils.sheet_to_json(ws, { header: 1, defval: '' });
 
+    // Cabeçalho
     let headerIdx = -1;
     for (let i = 0; i < Math.min(rows.length, 25); i++) {
       const row = rows[i].map(c => String(c).toLowerCase());
@@ -116,6 +122,7 @@ async function processarArquivo(file) {
     const header = rows[headerIdx].map(c => String(c).toLowerCase().trim());
     const idxConcurso = header.findIndex(c => c.includes('concurso'));
 
+    // Colunas das bolas
     const idxBolas = [];
     header.forEach((c, i) => {
       if (c.includes('bola') || c.includes('dezena') || c.includes('nº') || c.includes('num')) {
@@ -127,6 +134,7 @@ async function processarArquivo(file) {
       for (let i = idxConcurso + 1; i <= idxConcurso + 15; i++) idxBolas.push(i);
     }
 
+    // Extrair
     const lista = [];
     for (let i = headerIdx + 1; i < rows.length; i++) {
       const row = rows[i];
@@ -140,6 +148,8 @@ async function processarArquivo(file) {
     }
 
     if (lista.length === 0) throw new Error('Nenhum concurso válido');
+
+    // Arquivo vem do mais novo → mais antigo
     lista.reverse();
     concursos = lista;
 
@@ -147,7 +157,6 @@ async function processarArquivo(file) {
     setBadge(`${concursos.length} concursos`, true);
     toast(`✓ ${concursos.length} concursos carregados`);
 
-    // Volta para home e renderiza tudo
     navegarPara('home');
     renderTabelaProb();
 
@@ -157,6 +166,10 @@ async function processarArquivo(file) {
     toast(`✕ ${e.message}`);
   }
 }
+
+/* ============================================================
+   CACHE
+   ============================================================ */
 
 function salvarCache() {
   try {
@@ -183,6 +196,11 @@ function lerCache() {
    ============================================================ */
 
 function validarDados() {
+  if (concursos.length === 0) {
+    $('validacao').innerHTML = '<span style="color:#a0a0a0">Carregue a planilha primeiro</span>';
+    return;
+  }
+
   const problemas = [];
   const vistos = new Set();
 
@@ -196,11 +214,6 @@ function validarDados() {
   });
 
   const el = $('validacao');
-  if (concursos.length === 0) {
-    el.innerHTML = '<span style="color:#a0a0a0">Carregue a planilha primeiro</span>';
-    return;
-  }
-
   if (problemas.length === 0) {
     el.innerHTML = `<span style="color:#7fba00">✓ ${concursos.length} concursos válidos</span>`;
   } else {
@@ -549,7 +562,10 @@ function renderSoma() {
       },
       scales: {
         ...configBase().scales,
-        x: { ...configBase().scales.x, ticks: { ...configBase().scales.x.ticks, maxTicksLimit: 8 } }
+        x: {
+          ...configBase().scales.x,
+          ticks: { ...configBase().scales.x.ticks, maxTicksLimit: 8 }
+        }
       }
     }
   });
@@ -625,6 +641,7 @@ function temSequenciaLonga(jogo, maxSeq = 4) {
 
 function gerarJogo() {
   if (concursos.length === 0) return null;
+
   const ultimo = concursos[concursos.length - 1];
   const somas = calcSomas();
   const mediaSoma = somas.reduce((a, b) => a + b, 0) / somas.length;
@@ -726,30 +743,99 @@ function conferir() {
    EVENTOS
    ============================================================ */
 
-// Navegação por tiles
 document.querySelectorAll('[data-screen]').forEach(el => {
   el.addEventListener('click', () => navegarPara(el.dataset.screen));
 });
 
-// Botões voltar
 document.querySelectorAll('[data-back]').forEach(el => {
   el.addEventListener('click', () => navegarPara('home'));
 });
 
-// Upload
 $('uploadZone').addEventListener('click', () => $('fileInput').click());
 $('fileInput').addEventListener('change', e => {
   const file = e.target.files[0];
   if (file) processarArquivo(file);
 });
 
-// Ações
 $('gerarNovamente').addEventListener('click', renderJogo);
 $('conferirBtn').addEventListener('click', conferir);
 $('limparBtn').addEventListener('click', () => {
   $('conferirInput').value = '';
   $('conferirResult').innerHTML = '';
 });
+
+/* ============================================================
+   PWA — SERVICE WORKER, INSTALAÇÃO E OFFLINE
+   ============================================================ */
+
+let deferredPrompt = null;
+
+function registrarServiceWorker() {
+  if (!('serviceWorker' in navigator)) return;
+
+  window.addEventListener('load', () => {
+    navigator.serviceWorker.register('./sw.js')
+      .then(reg => {
+        console.log('✅ SW registrado:', reg.scope);
+        setInterval(() => reg.update(), 60 * 60 * 1000);
+      })
+      .catch(err => console.warn('SW falhou:', err));
+  });
+}
+
+function configurarPWA() {
+  const banner = $('pwaBanner');
+  const btnInstalar = $('pwaInstall');
+  const btnFechar = $('pwaClose');
+
+  const isStandalone = window.matchMedia('(display-mode: standalone)').matches
+    || window.navigator.standalone === true;
+
+  if (isStandalone) return;
+  if (localStorage.getItem('pwa_dismissed') === '1') return;
+
+  window.addEventListener('beforeinstallprompt', e => {
+    e.preventDefault();
+    deferredPrompt = e;
+    banner.classList.add('show');
+  });
+
+  btnInstalar.addEventListener('click', async () => {
+    if (!deferredPrompt) return;
+    deferredPrompt.prompt();
+    const { outcome } = await deferredPrompt.userChoice;
+    console.log('Instalação:', outcome);
+    deferredPrompt = null;
+    banner.classList.remove('show');
+  });
+
+  btnFechar.addEventListener('click', () => {
+    banner.classList.remove('show');
+    localStorage.setItem('pwa_dismissed', '1');
+  });
+
+  window.addEventListener('appinstalled', () => {
+    banner.classList.remove('show');
+    toast('✓ App instalado');
+  });
+}
+
+function configurarOffline() {
+  const badge = $('offlineBadge');
+
+  function atualizar() {
+    if (navigator.onLine) badge.classList.remove('show');
+    else badge.classList.add('show');
+  }
+
+  window.addEventListener('online', atualizar);
+  window.addEventListener('offline', atualizar);
+  atualizar();
+}
+
+registrarServiceWorker();
+configurarPWA();
+configurarOffline();
 
 /* ============================================================
    INÍCIO
