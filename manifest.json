@@ -9,35 +9,33 @@
   "background_color": "#000000",
   "theme_color": "#000000",
   "lang": "pt-BR",
+  "dir": "ltr",
   "categories": ["utilities", "entertainment"],
+  "prefer_related_applications": false,
   "icons": [
     {
-      "src": "icons/icon-192.png",
+      "src": "data:image/svg+xml;base64,PHN2ZyB4bWxucz0iaHR0cDovL3d3dy53My5vcmcvMjAwMC9zdmciIHZpZXdCb3g9IjAgMCA1MTIgNTEyIj48cmVjdCB3aWR0aD0iNTEyIiBoZWlnaHQ9IjUxMiIgZmlsbD0iIzAwMDAwMCIvPjxyZWN0IHg9IjIwIiB5PSIyMCIgd2lkdGg9IjQ3MiIgaGVpZ2h0PSI0NzIiIGZpbGw9Im5vbmUiIHN0cm9rZT0iI2ZmYjkwMCIgc3Ryb2tlLXdpZHRoPSI4Ii8+PHRleHQgeD0iMjU2IiB5PSIyNDAiIGZvbnQtc2l6ZT0iMjgwIiB0ZXh0LWFuY2hvcj0ibWlkZGxlIiBkb21pbmFudC1iYXNlbGluZT0ibWlkZGxlIj7wn46APC90ZXh0Pjx0ZXh0IHg9IjI1NiIgeT0iNDAwIiBmb250LWZhbWlseT0iU2Vnb2UgVUksIEFyaWFsLCBzYW5zLXNlcmlmIiBmb250LXNpemU9IjExMCIgZm9udC13ZWlnaHQ9IjIwMCIgZmlsbD0iI2ZmYjkwMCIgdGV4dC1hbmNob3I9Im1pZGRsZSIgZG9taW5hbnQtYmFzZWxpbmU9Im1pZGRsZSIkTEY8L3RleHQ+PC9zdmc+",
       "sizes": "192x192",
-      "type": "image/png",
-      "purpose": "any maskable"
+      "type": "image/svg+xml",
+      "purpose": "any"
     },
     {
-      "src": "icons/icon-512.png",
+      "src": "data:image/svg+xml;base64,PHN2ZyB4bWxucz0iaHR0cDovL3d3dy53My5vcmcvMjAwMC9zdmciIHZpZXdCb3g9IjAgMCA1MTIgNTEyIj48cmVjdCB3aWR0aD0iNTEyIiBoZWlnaHQ9IjUxMiIgZmlsbD0iIzAwMDAwMCIvPjxyZWN0IHg9IjIwIiB5PSIyMCIgd2lkdGg9IjQ3MiIgaGVpZ2h0PSI0NzIiIGZpbGw9Im5vbmUiIHN0cm9rZT0iI2ZmYjkwMCIgc3Ryb2tlLXdpZHRoPSI4Ii8+PHRleHQgeD0iMjU2IiB5PSIyNDAiIGZvbnQtc2l6ZT0iMjgwIiB0ZXh0LWFuY2hvcj0ibWlkZGxlIiBkb21pbmFudC1iYXNlbGluZT0ibWlkZGxlIj7wn46APC90ZXh0Pjx0ZXh0IHg9IjI1NiIgeT0iNDAwIiBmb250LWZhbWlseT0iU2Vnb2UgVUksIEFyaWFsLCBzYW5zLXNlcmlmIiBmb250LXNpemU9IjExMCIgZm9udC13ZWlnaHQ9IjIwMCIgZmlsbD0iI2ZmYjkwMCIgdGV4dC1hbmNob3I9Im1pZGRsZSIgZG9taW5hbnQtYmFzZWxpbmU9Im1pZGRsZSIkTEY8L3RleHQ+PC9zdmc+",
       "sizes": "512x512",
-      "type": "image/png",
-      "purpose": "any maskable"
-    }
-  ],
-  "shortcuts": [
-    {
-      "name": "Gerar Jogo",
-      "short_name": "Gerar",
-      "description": "Gera um novo jogo",
-      "url": "./index.html?screen=gerar",
-      "icons": [{ "src": "icons/icon-192.png", "sizes": "192x192" }]
+      "type": "image/svg+xml",
+      "purpose": "any"
     },
     {
-      "name": "Conferir",
-      "short_name": "Conferir",
-      "description": "Confere um jogo",
-      "url": "./index.html?screen=conferir",
-      "icons": [{ "src": "icons/icon-192.png", "sizes": "192x192" }]
+      "src": "data:image/svg+xml;base64,PHN2ZyB4bWxucz0iaHR0cDovL3d3dy53My5vcmcvMjAwMC9zdmciIHZpZXdCb3g9IjAgMCA1MTIgNTEyIj48cmVjdCB3aWR0aD0iNTEyIiBoZWlnaHQ9IjUxMiIgZmlsbD0iIzAwMDAwMCIvPjx0ZXh0IHg9IjI1NiIgeT0iMjQwIiBmb250LXNpemU9IjI4MCIgdGV4dC1hbmNob3I9Im1pZGRsZSIgZG9taW5hbnQtYmFzZWxpbmU9Im1pZGRsZSI+8J+OgDwvdGV4dD48L3N2Zz4=",
+      "sizes": "192x192",
+      "type": "image/svg+xml",
+      "purpose": "maskable"
+    },
+    {
+      "src": "data:image/svg+xml;base64,PHN2ZyB4bWxucz0iaHR0cDovL3d3dy53My5vcmcvMjAwMC9zdmciIHZpZXdCb3g9IjAgMCA1MTIgNTEyIj48cmVjdCB3aWR0aD0iNTEyIiBoZWlnaHQ9IjUxMiIgZmlsbD0iIzAwMDAwMCIvPjx0ZXh0IHg9IjI1NiIgeT0iMjQwIiBmb250LXNpemU9IjI4MCIgdGV4dC1hbmNob3I9Im1pZGRsZSIgZG9taW5hbnQtYmFzZWxpbmU9Im1pZGRsZSI+8J+OgDwvdGV4dD48L3N2Zz4=",
+      "sizes": "512x512",
+      "type": "image/svg+xml",
+      "purpose": "maskable"
     }
   ]
 }
