@@ -3,8 +3,9 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>Lotofácil Analytics</title>
+<title>Lotofácil Analytics — Sistema Probabilístico</title>
 <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.1/dist/chart.umd.min.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/xlsx@0.18.5/dist/xlsx.full.min.js"></script>
 <style>
   :root {
     --bg:#0f172a; --card:#1e293b; --border:#334155;
@@ -52,6 +53,12 @@
   .chart-wrap { position:relative; height:280px; }
   .chart-wrap.tall { height:380px; }
   .row { display:flex; gap:10px; flex-wrap:wrap; margin-top:12px; align-items:center; }
+  textarea {
+    width:100%; height:120px; background:var(--bg);
+    color:var(--text); border:1px solid var(--border);
+    border-radius:10px; padding:12px; font-family:monospace;
+    font-size:.8rem; resize:vertical;
+  }
   .stats-mini {
     display:grid; grid-template-columns:repeat(auto-fit,minmax(100px,1fr));
     gap:10px; margin-top:12px;
@@ -90,67 +97,166 @@
     vertical-align:middle; margin-right:6px;
   }
   @keyframes spin { to { transform:rotate(360deg); } }
+  .badge {
+    display:inline-block; padding:3px 10px; border-radius:20px;
+    font-size:.7rem; font-weight:600; margin-left:8px;
+  }
+  .badge.on { background:rgba(74,222,128,.2); color:#4ade80; }
+  .badge.off { background:rgba(248,113,113,.2); color:#f87171; }
+  input[type=file] { font-size:.8rem; color:var(--muted); }
+  .aviso {
+    background:rgba(248,113,113,.1);
+    border:1px solid rgba(248,113,113,.3);
+    border-radius:12px; padding:14px; margin-top:12px;
+    font-size:.8rem; color:var(--text); line-height:1.6;
+  }
+  .aviso b { color:#f87171; }
+  .table-prob {
+    width:100%; border-collapse:collapse; margin-top:12px;
+    font-size:.8rem;
+  }
+  .table-prob th, .table-prob td {
+    padding:8px; text-align:left;
+    border-bottom:1px solid var(--border);
+  }
+  .table-prob th { color:var(--accent); font-size:.75rem; }
+  .table-prob .val { color:var(--blue); font-weight:700; }
+  .table-prob .custo { color:var(--muted); }
+  .checkbox-row {
+    display:flex; align-items:center; gap:8px;
+    font-size:.8rem; color:var(--muted); margin-top:8px;
+  }
+  .checkbox-row input { accent-color:var(--accent); }
 </style>
 </head>
 <body>
 
 <header>
   <div>
-    <h1>🍀 Lotofácil Analytics</h1>
-    <div class="subtitle" id="status">Iniciando…</div>
+    <h1>🍀 Lotofácil Analytics <span class="badge off" id="badgeFonte">sem dados</span></h1>
+    <div class="subtitle" id="status">Aguardando dados…</div>
   </div>
   <div class="row">
     <button class="btn secondary" id="themeBtn">🌓 Tema</button>
-    <button class="btn secondary" id="recarregarBtn">🔄 Recarregar API</button>
+    <button class="btn secondary" id="apiBtn">📡 API</button>
     <button class="btn" id="gerarBtn">🎲 Gerar Jogo</button>
   </div>
 </header>
 
 <div class="grid">
 
+  <!-- Aviso obrigatório -->
+  <div class="card full">
+    <div class="aviso">
+      ⚠️ <b>Aviso importante:</b> Este sistema <b>não prevê</b> o próximo sorteio e <b>não aumenta</b> sua chance de ganhar.
+      Ele aplica filtros combinatórios para gerar jogos estruturalmente comuns, o que <b>não altera</b> a probabilidade
+      de acerto (1 em 3.268.760 para 15 acertos), mas <b>reduz</b> a chance de dividir o prêmio com muitas pessoas caso você ganhe.
+      Jogue com responsabilidade.
+    </div>
+  </div>
+
+  <!-- Entrada Híbrida -->
+  <div class="card full">
+    <h2>📥 Entrada de Dados (Híbrida)</h2>
+    <p class="info">
+      <b>Opção 1:</b> Carregue seu arquivo XLSX/CSV da As Loterias (ou qualquer planilha com colunas Concurso + 15 bolas).<br>
+      <b>Opção 2:</b> Cole os números manualmente (um concurso por linha, 15 números separados por espaço, vírgula ou ponto-e-vírgula).<br>
+      <b>Opção 3:</b> Clique em <b>📡 API</b> para baixar automaticamente da free-apiloterias.
+    </p>
+    <textarea id="dataInput" placeholder="Exemplo:
+01 02 03 05 07 09 11 13 15 17 19 21 23 24 25
+02 04 06 08 10 12 14 16 18 20 22 23 24 25 01
+..."></textarea>
+    <div class="row">
+      <input type="file" id="fileInput" accept=".xlsx,.xls,.csv,.txt">
+      <button class="btn" id="processBtn">Processar texto</button>
+      <button class="btn secondary" id="limparBtn">Limpar</button>
+    </div>
+  </div>
+
+  <!-- Validação -->
+  <div class="card full">
+    <h2>🔍 Validação de Integridade</h2>
+    <div id="validacao" class="result">Aguardando dados…</div>
+  </div>
+
+  <!-- Distribuição Hipergeométrica -->
+  <div class="card full">
+    <h2>📐 Distribuição Hipergeométrica (Probabilidade Real)</h2>
+    <p class="info">
+      A distribuição hipergeométrica calcula a probabilidade exata de acertar <b>k</b> números,
+      dado que você escolheu 15 números entre 25 possíveis e o sorteio revela 15 números.
+      Esta é a matemática exata — não uma estimativa.
+    </p>
+    <table class="table-prob" id="tabelaProb">
+      <thead>
+        <tr><th>Acertos</th><th>Probabilidade exata</th><th>Custo (R$)</th></tr>
+      </thead>
+      <tbody></tbody>
+    </table>
+  </div>
+
+  <!-- Donut -->
   <div class="card">
     <h2>📊 Distribuição Pares × Ímpares</h2>
     <div class="chart-wrap"><canvas id="donutPares"></canvas></div>
     <div class="legend-inline" id="donutLegend"></div>
   </div>
 
+  <!-- Frequência -->
   <div class="card">
     <h2>🔥 Frequência dos Números</h2>
     <div class="chart-wrap tall"><canvas id="chartFreq"></canvas></div>
   </div>
 
+  <!-- Atraso -->
   <div class="card">
-    <h2>⏱️ Atraso (concursos sem sair)</h2>
+    <h2>⏱️ Atraso (informativo, não preditivo)</h2>
     <div class="chart-wrap tall"><canvas id="chartAtraso"></canvas></div>
   </div>
 
+  <!-- Faixas -->
   <div class="card">
     <h2>🗺️ Mapa de Calor por Faixa</h2>
     <div class="chart-wrap"><canvas id="chartFaixa"></canvas></div>
   </div>
 
+  <!-- Soma -->
   <div class="card">
     <h2>➕ Distribuição da Soma</h2>
     <div class="chart-wrap"><canvas id="chartSoma"></canvas></div>
     <div class="stats-mini" id="somaStats"></div>
   </div>
 
+  <!-- Repetidos -->
   <div class="card">
-    <h2>🔁 Números Repetidos do Concurso Anterior</h2>
+    <h2>🔁 Repetidos do Concurso Anterior</h2>
     <div class="chart-wrap"><canvas id="chartRepetidos"></canvas></div>
     <div class="stats-mini" id="repStats"></div>
   </div>
 
+  <!-- Gerador -->
   <div class="card full">
-    <h2>🎲 Jogo Sugerido (filtros estatísticos)</h2>
+    <h2>🎲 Jogo Sugerido (filtros probabilísticos)</h2>
+    <p class="info">O gerador aplica os seguintes filtros: 7–8 pares / 7–8 ímpares, soma dentro de 1 desvio-padrão,
+      7–11 repetidos do concurso anterior, ao menos 1 número por faixa, sem sequências longas.</p>
+    <div class="checkbox-row">
+      <input type="checkbox" id="chkFiltros" checked>
+      <label for="chkFiltros">Aplicar todos os filtros probabilísticos</label>
+    </div>
     <div class="jogo" id="jogoGerado"></div>
     <div class="result" id="jogoInfo"></div>
+    <div class="row">
+      <button class="btn" id="gerarMultiplosBtn">Gerar 5 jogos</button>
+    </div>
+    <div id="jogosMultiplos"></div>
   </div>
 
+  <!-- Conferidor -->
   <div class="card full">
     <h2>✅ Conferidor de Jogos</h2>
     <p class="info">Digite 15 números separados por espaço para ver quantos acertos ele teria tido em cada concurso do histórico.</p>
-    <textarea id="conferirInput" style="width:100%;height:60px;background:var(--bg);color:var(--text);border:1px solid var(--border);border-radius:10px;padding:12px;font-family:monospace;font-size:.85rem;margin-top:10px" placeholder="01 02 03 05 07 09 11 13 15 17 19 21 23 24 25"></textarea>
+    <textarea id="conferirInput" style="height:60px" placeholder="01 02 03 05 07 09 11 13 15 17 19 21 23 24 25"></textarea>
     <div class="row"><button class="btn" id="conferirBtn">Conferir</button></div>
     <div class="result" id="conferirResult"></div>
   </div>
