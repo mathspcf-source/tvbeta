@@ -111,7 +111,6 @@ async function processarArquivo(file) {
     const ws = wb.Sheets[wb.SheetNames[0]];
     const rows = XLSX.utils.sheet_to_json(ws, { header: 1, defval: '' });
 
-    // Cabeçalho
     let headerIdx = -1;
     for (let i = 0; i < Math.min(rows.length, 25); i++) {
       const row = rows[i].map(c => String(c).toLowerCase());
@@ -122,7 +121,6 @@ async function processarArquivo(file) {
     const header = rows[headerIdx].map(c => String(c).toLowerCase().trim());
     const idxConcurso = header.findIndex(c => c.includes('concurso'));
 
-    // Colunas das bolas
     const idxBolas = [];
     header.forEach((c, i) => {
       if (c.includes('bola') || c.includes('dezena') || c.includes('nº') || c.includes('num')) {
@@ -134,7 +132,6 @@ async function processarArquivo(file) {
       for (let i = idxConcurso + 1; i <= idxConcurso + 15; i++) idxBolas.push(i);
     }
 
-    // Extrair
     const lista = [];
     for (let i = headerIdx + 1; i < rows.length; i++) {
       const row = rows[i];
@@ -149,7 +146,6 @@ async function processarArquivo(file) {
 
     if (lista.length === 0) throw new Error('Nenhum concurso válido');
 
-    // Arquivo vem do mais novo → mais antigo
     lista.reverse();
     concursos = lista;
 
@@ -765,21 +761,38 @@ $('limparBtn').addEventListener('click', () => {
 });
 
 /* ============================================================
-   PWA — SERVICE WORKER, INSTALAÇÃO E OFFLINE
+   PWA — Service Worker, instalação e offline
+   Compatível com Chrome Android (WebAPK)
    ============================================================ */
 
 let deferredPrompt = null;
 
 function registrarServiceWorker() {
-  if (!('serviceWorker' in navigator)) return;
+  if (!('serviceWorker' in navigator)) {
+    console.warn('Service Worker não suportado');
+    return;
+  }
 
   window.addEventListener('load', () => {
-    navigator.serviceWorker.register('./sw.js')
+    navigator.serviceWorker.register('./sw.js', { scope: './' })
       .then(reg => {
-        console.log('✅ SW registrado:', reg.scope);
+        console.log('✅ SW registrado. Escopo:', reg.scope);
+
+        reg.update();
         setInterval(() => reg.update(), 60 * 60 * 1000);
+
+        reg.addEventListener('updatefound', () => {
+          const novo = reg.installing;
+          novo.addEventListener('statechange', () => {
+            if (novo.state === 'installed' && navigator.serviceWorker.controller) {
+              toast('🔄 Nova versão disponível. Recarregue.');
+            }
+          });
+        });
       })
-      .catch(err => console.warn('SW falhou:', err));
+      .catch(err => {
+        console.error('❌ SW falhou:', err);
+      });
   });
 }
 
@@ -788,25 +801,37 @@ function configurarPWA() {
   const btnInstalar = $('pwaInstall');
   const btnFechar = $('pwaClose');
 
-  const isStandalone = window.matchMedia('(display-mode: standalone)').matches
-    || window.navigator.standalone === true;
+  const isStandalone =
+    window.matchMedia('(display-mode: standalone)').matches ||
+    window.navigator.standalone === true;
 
-  if (isStandalone) return;
-  if (localStorage.getItem('pwa_dismissed') === '1') return;
+  if (isStandalone) {
+    console.log('✅ App já instalado');
+    return;
+  }
+
+  if (localStorage.getItem('pwa_dismissed') === '1') {
+    return;
+  }
 
   window.addEventListener('beforeinstallprompt', e => {
     e.preventDefault();
+    console.log('✅ beforeinstallprompt disparado');
     deferredPrompt = e;
     banner.classList.add('show');
   });
 
   btnInstalar.addEventListener('click', async () => {
-    if (!deferredPrompt) return;
+    if (!deferredPrompt) {
+      toast('Use o menu ⋮ → Instalar aplicativo');
+      return;
+    }
     deferredPrompt.prompt();
     const { outcome } = await deferredPrompt.userChoice;
     console.log('Instalação:', outcome);
     deferredPrompt = null;
     banner.classList.remove('show');
+    if (outcome === 'accepted') toast('✓ Instalando…');
   });
 
   btnFechar.addEventListener('click', () => {
@@ -815,6 +840,7 @@ function configurarPWA() {
   });
 
   window.addEventListener('appinstalled', () => {
+    console.log('✅ App instalado');
     banner.classList.remove('show');
     toast('✓ App instalado');
   });
